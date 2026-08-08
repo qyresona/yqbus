@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阳泉公交线路查询系统</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 15px; }
+        .system-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin: 15px 0; }
+        .system-tabs button { padding: 8px 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 6px; font-size: 14px; }
+        .system-tabs button.active { background: #007bff; color: white; border-color: #007bff; }
+
+               #busList {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+		
+                       .bus-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 16px;
+            background: #fafafa;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 0;
+        }
+        /* 让卡片在宽屏下更紧凑 */
+        @media (min-width: 700px) {
+            .bus-card .left {
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .bus-card .route {
+                margin-top: 0;
+            }
+        }
+        .bus-card:hover { background: #f0f0f0; }
+        .bus-card .left {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+        .bus-card .top-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .bus-card .id { font-weight: bold; font-size: 1.2em; }
+        .bus-card .system-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .bus-card .route {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 2px;
+        }
+        .bus-card .swap-btn {
+            flex-shrink: 0;
+            margin-left: 12px;
+            padding: 4px 12px;
+            border: 1px solid #ccc;
+            border-radius: 16px;
+            font-size: 0.75em;
+            color: #555;
+            background: #fff;
+            cursor: pointer;
+            transition: 0.2s;
+            user-select: none;
+        }
+        .bus-card .swap-btn:hover {
+            background: #e6f0ff;
+            border-color: #007bff;
+            color: #007bff;
+        }
+
+        .search-box { width: 100%; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .search-hint { font-size: 0.8em; color: #888; margin-top: 4px; }
+        .note { font-size: 0.85em; color: #888; margin-top: 20px; border-top: 1px solid #eee; padding-top: 12px; }
+        .empty { color: #999; text-align: center; padding: 30px 0; }
+        .result-stats { font-size: 0.9em; color: #666; margin: 10px 0; }
+
+        /* ===== 换乘规划（折叠面板） ===== */
+        .transfer-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 16px 0;
+            border: 1px solid #e0e0e0;
+        }
+        .transfer-header:hover { background: #f0f0f0; }
+        .transfer-body { transition: all 0.3s ease; }
+        .transfer-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .transfer-row input {
+            flex: 1;
+            min-width: 100px;
+            padding: 8px 12px;
+            font-size: 0.95em;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        .transfer-row select {
+            padding: 8px 12px;
+            font-size: 0.95em;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fff;
+            min-width: 80px;
+        }
+        .transfer-row button {
+            padding: 8px 20px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .transfer-row button:hover { background: #0056b3; }
+        .transfer-result {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #fff;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            font-size: 0.95em;
+            line-height: 1.8;
+            display: none;
+        }
+        .transfer-result.show { display: block; }
+        .transfer-result .route-line {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            color: #fff;
+            margin: 0 4px;
+        }
+        .transfer-result .highlight-stop {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .transfer-result .step {
+            display: block;
+            padding: 4px 0;
+        }
+        .transfer-result .other-route-btn {
+            margin-top: 10px;
+            padding: 6px 16px;
+            background: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .transfer-result .other-route-btn:hover { background: #218838; }
+        .transfer-result .system-warning {
+            color: #856404;
+            background: #fff3cd;
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        /* ===== 搜索结果-站点分组 ===== */
+        .search-group {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: #fafafa;
+            overflow: hidden;
+        }
+        .search-group-header {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+            transition: background 0.2s;
+            font-weight: 500;
+            font-size: 1.05em;
+        }
+        .search-group-header:hover { background: #f0f0f0; }
+        .search-group-header .arrow {
+            margin-left: auto;
+            transition: transform 0.3s;
+            font-size: 0.8em;
+            color: #888;
+        }
+        .search-group-header .arrow.open { transform: rotate(180deg); }
+                .search-group-body {
+            padding: 0 16px 12px 16px;
+            display: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .search-group-body.open { display: flex; }
+        .search-group-body .mini-card {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+            flex: 0 1 auto;
+        }
+        .search-group-body .mini-card:hover {
+            background: #e9ecef;
+            border-color: #ddd;
+        }
+        .search-group-body .mini-card .mini-id {
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+        .search-group-body .mini-card .mini-route {
+            font-size: 0.8em;
+            color: #666;
+        }
+        .search-group-body .mini-card .mini-tag {
+            font-size: 0.6em;
+            padding: 1px 8px;
+            border-radius: 10px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        /* ===== 模态框 ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #fff;
+            max-width: 700px;
+            width: 95%;
+            max-height: 90vh;
+            border-radius: 16px;
+            padding: 24px 28px 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            background: none;
+            border: none;
+            line-height: 1;
+        }
+        .modal-close:hover { color: #333; }
+        .modal-title { font-size: 1.8em; font-weight: bold; margin-bottom: 4px; padding-right: 40px; }
+        .modal-meta {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .modal-meta:hover { color: #007bff; }
+        .modal-meta span { margin-right: 16px; }
+
+        /* ===== 纵向站点列表（新布局） ===== */
+        .stops-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 0;
+            max-height: 50vh;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+                .stops-vertical .stop-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 1.05em;
+            border: 1px solid #dde4f0;
+            background: #f8f9fa;
+            margin-bottom: 4px;
+        }
+        .stops-vertical .stop-row:last-child {
+            margin-bottom: 0;
+        }
+        .stops-vertical .stop-name {
+            font-weight: 500;
+            min-width: 60px;
+        }
+        .stops-vertical .stop-dots {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .stops-vertical .stop-connector-vertical {
+            color: #ccc;
+            font-size: 0.8em;
+            margin-left: 4px;
+        }
+
+        .modal-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-top: 6px;
+            font-size: 0.95em;
+            line-height: 1.7;
+            border-left: 4px solid #2b7be4;
+            flex-shrink: 0;
+        }
+        .modal-info .label { font-weight: bold; color: #333; }
+        .modal-tips {
+            margin-top: 12px;
+            border-top: 1px dashed #ddd;
+            padding-top: 12px;
+            font-size: 0.92em;
+            color: #444;
+            flex-shrink: 0;
+        }
+        .modal-tips .label { font-weight: bold; color: #333; }
+
+        /* ===== 站点圆点 ===== */
+        .stop-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            vertical-align: middle;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .search-group-header .stop-dot { margin-left: 6px; }
+
+        @media (max-width: 600px) {
+            .modal { padding: 18px 16px; }
+            .modal-title { font-size: 1.4em; }
+            .stops-vertical .stop-row { font-size: 0.95em; padding: 3px 4px; }
+            .modal-info { font-size: 0.85em; padding: 10px 14px; }
+            .bus-card { padding: 10px 12px; }
+            .bus-card .swap-btn { font-size: 0.65em; padding: 2px 10px; }
+            .transfer-row input { min-width: 70px; font-size: 0.85em; }
+            .transfer-row select { font-size: 0.85em; padding: 6px 10px; }
+            .transfer-row button { font-size: 0.85em; padding: 6px 14px; }
+            .stop-dot { width: 8px; height: 8px; }
+            .search-group-header { font-size: 0.95em; padding: 8px 12px; }
+            .search-group-body { padding: 0 12px 10px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚌 阳泉公交线路查询系统</h1>
+    <p style="color:#666;">整合城区，平定，盂县，华阳四套公交系统</p>
+
+    <div class="system-tabs">
+        <button class="active" data-system="全部">全部</button>
+        <button data-system="城区">城区</button>
+        <button data-system="平定">平定</button>
+        <button data-system="盂县">盂县</button>
+        <button data-system="华阳">华阳</button>
+        <button data-system="停运">(停运)</button>
+    </div>
+
+    <input type="text" class="search-box" id="searchInput" placeholder="🔍 输入站点名或线路号查询">
+    <div class="search-hint">💡 模糊搜索：输入「市一院」会匹配「市一院」「市一院新院区」等</div>
+
+    <!-- ===== 换乘规划（折叠面板） ===== -->
+    <div class="transfer-section">
+        <div class="transfer-header" id="transferToggle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+            <h3 style="margin:0;font-size:1em;color:#333;">🚏 换乘规划 <span style="font-weight:normal;font-size:0.8em;color:#888;">（点击展开）</span></h3>
+            <span id="transferArrow" style="font-size:1.2em;transition:transform 0.3s;">▶</span>
+        </div>
+        <div class="transfer-body" id="transferBody" style="display:none;margin-top:12px;">
+            <div class="transfer-row">
+                <select id="systemFilter">
+                    <option value="全部">全部</option>
+                    <option value="城区" selected>城区</option>
+                    <option value="平定">平定</option>
+                    <option value="盂县">盂县</option>
+                    <option value="华阳">华阳</option>
+                </select>
+                <input type="text" id="transferStart" placeholder="起点站">
+                <input type="text" id="transferEnd" placeholder="终点站">
+                <button id="transferBtn">查询换乘</button>
+            </div>
+            <div class="transfer-result" id="transferResult"></div>
+        </div>
+    </div>
+
+    <div class="result-stats">共 <span id="lineCount">0</span> 条线路</div>
+
+    <div id="busList"></div>
+
+    <div class="note">
+        ⚠️ 数据为个人整理，仅供参考，除城区公交外的数据大部分来源于高德地图，实际线路运行情况可能存在误差，以公交公司的官方公告为准。<br>
+        最后更新：2026年8月 · 收录线路：<span id="totalCount">0</span>条（包括9条停运线路）· 覆盖站点：<span id="totalStops">0</span>个
+    </div>
+
+    <!-- ===== 模态框 ===== -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <button class="modal-close" id="modalClose">✕</button>
+            <div class="modal-title" id="modalTitle">线路名</div>
+            <div class="modal-meta" id="modalMeta">
+                <span id="modalSystem">城区</span>
+                <span id="modalStartEnd">起点 → 终点 <span style="font-size:0.8em;color:#999;">（点击换向）</span></span>
+            </div>
+            <!-- 纵向站点列表 -->
+            <div class="stops-vertical" id="modalStops"></div>
+            <div class="modal-info" id="modalInfo">
+                <span class="label">💰 票价：</span><span id="modalFare">待补充</span><br>
+                <span class="label">💳 卡证：</span><span id="modalCard">待补充</span>
+            </div>
+            <div class="modal-tips" id="modalTips">
+                <span class="label">📌 备注：</span><span id="modalNote">暂无</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // 📦 数据区 —— 
+        // ============================================================
+        const busData = [
+		 // ===== 城区公交 =====
+            {
+                id: "1路",
+                system: "城区",
+                start: "火车站",
+                end: "一矿",
+                stops: ["火车站", "市一院", "市政府", "美隆国际", "公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "去程不经过美隆国际，返程不经过机电工区"
+           },
+           {
+                id: "1路支",
+                system: "城区",
+                start: "一矿",
+                end: "义井公交车场",
+                stops: ["一矿", "里沙坪", "前庄", "一矿医院", "沙坪", "三矿广场", "三矿", "赛鱼", "十五中", "矿区法院", "馨泽苑", "虎尾沟", "世纪明珠", "水泉沟", "四矿口", "俱乐部", "河神庙", "马家坪", "平潭街", "华阳集团", "文化宫", "公路局", "美隆国际", "市政府", "市一院", "化工厂", "城区政府", "阳泉四中", "体育馆", "山西银行", "义井桥", "义井公交车场"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "单行线路，仅一矿 → 义井公交车场方向运营。您偶尔看见有小车的1路支可能会疑惑，实际上是803路的回程顺便载客。"
+            },
+            {
+                id: "1路区间",
+                system: "城区",
+                start: "火车站",
+                end: "阳光新区",
+                stops: ["火车站", "市一院", "市政府", "美隆国际", "公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "三矿医院", "太行国际新城", "阳光新区"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "早班车，有时候可能为了缓解客流压力，白天也可以见到"
+            },
+            {
+                id: "DK1路",
+                system: "城区",
+                start: "火车站",
+                end: "一矿",
+                stops: ["火车站", "市一院", "市政府", "美隆国际", "公路局", "华阳集团","河神庙","四矿口", "馨泽苑", "赛鱼","三矿广场","一矿医院","一矿"],
+                fare: "2元",
+                card: "普通卡有效，老年卡和学生卡无效",
+                note: "这个车虽然贵一点，但是有空调，不过还是没什么性价比，跨的站数还是不够，所以经常空载，上错车的情况也很常见，希望有朝一日公交公司可以优化一下。"
+            },
+            {
+                id: "2路",
+                system: "城区",
+                start: "晋东加气站",
+                end: "滨河公交车场",
+                stops: ["晋东加气站", "海磊物流园", "东升市场", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府","美隆国际","银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场"],
+                fare: "1元",
+                card: "公交IC卡仅限滨河公交车场 ↔ 东关段使用",
+                note: "去程不经过沃尔玛、返程不经过保晋文化园，也是阳泉公交发车最密集的线路。"
+            },
+            {
+                id: "2路区间1",
+                system: "城区",
+                start: "东关",
+                end: "滨河公交车场",
+                stops: ["东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府","美隆国际", "银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场"],
+                fare: "分段计价",
+                card: "公交IC卡仅限滨河公交车场 ↔ 东关段使用",
+                note: "只有早晚能见到"
+            },
+            {
+                id: "4路左环",
+                system: "城区",
+                start: "万通市场",
+                end: "万通市场",
+                stops: ["万通市场", "凤凰城", "第四人民医院", "火车站", "田园菜市场", "阳泉记忆1947", "南庄口", "阳泉泡沫厂", "邮政局", "大阳泉", "育英学校", "城南皮肤病医院", "市三院", "市人大", "市政府", "三中", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "一条城乡交流主干线"
+            },
+			{
+                id: "4路右环",
+                system: "城区",
+                start: "万通市场",
+                end: "万通市场",
+                stops: ["万通市场", "凤凰城", "第四人民医院", "火车站", "田园菜市场", "阳泉记忆1947", "南庄口", "阳泉泡沫厂", "邮政局", "大阳泉", "育英学校", "城南皮肤病医院", "市三院", "市人大", "市政府", "三中", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "一条城乡交流主干线"
+            },
+            {
+                id: "5路",
+                system: "城区",
+                start: "光大银行",
+                end: "刘备山",
+                stops: ["光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营广场", "镇政府", "后沟口", "坪上村", "育才小学", "荫营矿车管科", "澡堂", "集贸市场", "澡堂", "学校", "刘备山"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "去程在集贸市场站前掉头，故经过两次澡堂站"
+            },
+            {
+                id: "6路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "曹家掌",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "千亩坪", "旧二院", "众恒回收", "杨树沟", "三郊口", "铁路桥北","苇泊工业园", "南峪口", "固庄矿东大门", "小固庄", "龙光峪", "郊里新村", "北庄口", "榆林垴口", "北庄", "程庄", "燕龛学校", "燕龛", "曹家掌"],
+                fare: "1~4元",
+                card: "学生卡无效",
+                note: "燕龛读 kān 一声"
+            },
+            {
+                id: "7路",
+                system: "城区",
+                start: "颐康四区",
+                end: "北杨家庄",
+                stops: ["颐康四区", "佳瑞大厦", "安康家园", "滨河公交车场", "保晋文化园", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场", "农贸市场", "供电局宿舍", "上五渡", "交警四大队", "日昱城", "科技园", "氧化铝", "华泰伟业", "车管所", "亚美水泥", "齐家岩", "桃岩口", "杨家庄乡政府", "北杨家庄"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: ""
+            },
+            {
+                id: "7路支1",
+                system: "城区",
+                start: "颐康四区",
+                end: "桐花树",
+                stops: ["颐康四区", "佳瑞大厦", "安康家园", "滨河公交车场", "保晋文化园", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场", "农贸市场", "供电局宿舍", "上五渡", "交警四大队", "日昱城", "科技园", "氧化铝", "华泰伟业", "车管所", "亚美水泥", "齐家岩", "桃岩口", "杨家庄乡政府", "北杨家庄","桐花树"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: ""
+            },
+            {
+                id: "7路支2",
+                system: "城区",
+                start: "颐康四区",
+                end: "西岭",
+                stops: ["颐康四区", "佳瑞大厦", "安康家园", "滨河公交车场", "保晋文化园", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场", "农贸市场", "供电局宿舍", "上五渡", "交警四大队", "日昱城", "科技园", "氧化铝", "华泰伟业", "车管所", "亚美水泥", "齐家岩", "桃岩口", "杨家庄乡政府", "黑土岩","杏树坡","山头口","高垴庄","庙岭","西岭"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: ""
+            },
+            {
+                id: "7路支3",
+                system: "城区",
+                start: "颐康四区",
+                end: "连庄村",
+                stops: ["颐康四区", "佳瑞大厦", "安康家园", "滨河公交车场", "保晋文化园", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场", "农贸市场", "供电局宿舍", "上五渡", "交警四大队", "日昱城", "科技园", "氧化铝", "华泰伟业", "车管所", "亚美水泥", "齐家岩", "桃岩口", "杨家庄乡政府", "黑土岩","杏树坡","山头口","高垴庄","庙岭","西岭","三水厂","连庄村"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: ""
+            },
+            {
+                id: "7路支4",
+                system: "城区",
+                start: "颐康四区",
+                end: "西岭",
+                stops: ["颐康四区", "佳瑞大厦", "安康家园", "滨河公交车场", "保晋文化园", "华联", "隆鑫", "总工会", "药材站", "经贸局", "万通市场", "农贸市场", "供电局宿舍", "上五渡", "交警四大队", "日昱城", "科技园", "氧化铝", "华泰伟业", "车管所", "亚美水泥", "齐家岩", "桃岩口", "杨家庄乡政府", "黑土岩","杏树坡","山头口","山头"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: ""
+            },
+            {
+                id: "8路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "河底",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "千亩坪", "旧二院", "众恒回收", "杨树沟", "三郊口", "三都", "铁路桥北", "苇泊工业园", "南峪口", "固庄矿东大门", "苇泊", "工钢", "河底中学", "融浦小区", "河底"],
+                fare: "1~2元",
+                card: "学生卡无效",
+                note: ""
+            },
+            {
+                id: "8路区间2",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "佳瑞园",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: ""
+            },
+            {
+                id: "9路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "西南舁",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "三郊", "前洼", "后洼", "韩庄", "河南口", "西南舁"],
+                fare: "1~2元",
+                card: "学生卡无效",
+                note: "有几趟班次会绕章召行驶,原503路因路线与9路高度重合而撤销,故开通这个特殊的临时线路。"
+            },
+            {
+                id: "9路支1",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "岔口",
+                stops: ["滨河公交车场", "保晋文化园", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "三郊", "前洼", "后洼", "韩庄", "河南口", "西南舁", "五里庄", "雨下沟", "张山峪", "白瑶村口", "罗面咀西", "罗面咀东", "理家庄村口", "岔口中学", "岔口乡政府", "岔口"],
+                fare: "1~4元",
+                card: "学生卡无效",
+                note: "曾经还有9路支2，之后合并线路了"
+            },
+            {
+                id: "10路",
+                system: "城区",
+                start: "火车站",
+                end: "新店村",
+                stops: ["火车站", "市口腔医院（德胜街院区）", "天桥", "市建行", "银鹰金店", "文化中心南口", "少年宫", "自来水公司", "华阳集团口", "阳泉开放大学", "平潭街口", "矿区政府", "四矿口", "水泉沟", "新泽苑", "三矿医院", "太行国际新城", "阳光新区", "龙泉驾校", "银源山庄", "马家坡口", "平潭镇政府", "圣泉寺", "芦湖新村", "桑掌桥", "新景矿", "热电三厂", "高速路西口", "旧街煤矿", "下侧石", "上侧石", "汽配厂", "旧街", "河口桥", "新店村"],
+                fare: "1~2.5元",
+                card: "学生卡无效",
+                note: "返程绕行市政府、市一院"
+            },
+            {
+                id: "10路支1",
+                system: "城区",
+                start: "火车站",
+                end: "保安",
+                stops: ["火车站", "市口腔医院（德胜街院区）", "天桥", "市建行", "银鹰金店", "文化中心南口", "少年宫", "自来水公司", "华阳集团口", "阳泉开放大学", "平潭街口", "矿区政府", "四矿口", "水泉沟", "新泽苑", "三矿医院", "太行国际新城", "阳光新区", "龙泉驾校", "银源山庄", "马家坡口", "平潭镇政府", "圣泉寺", "芦湖新村", "桑掌桥", "新景矿", "热电三厂", "高速路西口", "旧街煤矿", "下侧石", "上侧石", "汽配厂", "旧街", "河口桥", "阳窑", "保安矿", "枣园", "保安"],
+                fare: "1~3元",
+                card: "学生卡无效",
+                note: "返程绕行市政府、市一院"
+            },
+            {
+                id: "10路支2",
+                system: "城区",
+                start: "火车站",
+                end: "闫家庄",
+                stops: ["火车站", "市口腔医院（德胜街院区）", "天桥", "市建行", "银鹰金店", "文化中心南口", "少年宫", "自来水公司", "华阳集团口", "阳泉开放大学", "平潭街口", "矿区政府", "四矿口", "水泉沟", "新泽苑", "三矿医院", "太行国际新城", "阳光新区", "龙泉驾校", "银源山庄", "马家坡口", "平潭镇政府", "圣泉寺", "芦湖新村", "桑掌桥", "新景矿", "热电三厂", "高速路西口", "旧街煤矿", "下侧石", "上侧石", "汽配厂", "旧街", "河口桥", "阳窑", "保安矿", "枣园", "保安", "梁家庄口", "虎峪口", "阳坡口", "闫家庄"],
+                fare: "1~4元",
+                card: "学生卡无效",
+                note: "返程绕行市政府、市一院"
+            },
+			{
+                id: "12路",
+                system: "城区",
+                start: "火车站",
+                end: "桃源居",
+                stops: ["火车站", "市一院", "市政府", "美隆国际", "公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "十六中","四矿小区","四矿广场","桃源居"],
+                fare: "1元",
+                card: "普通卡有效 · 老年卡有效",
+                note: "这里空空如也"
+            },
+            {
+                id: "14路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "巨城",
+                stops: ["滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店", "光大银行", "市卫健委", "北山公园", "广电大厦", "开发区管委会", "宏苑一区", "宏苑二区", "世纪宏苑", "吉祥苑乐", "铝矾土矿", "天成集运", "长岭", "华鑫电气", "柳沟新村", "射击射箭馆", "大西庄", "郊区孙家沟", "小西庄", "通宝鑫能物流园", "下白泉", "看守所", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄", "段家庄口", "小河北", "大麦峪", "水峪桥西", "水峪", "圪套", "巨城卫生院", "巨城派出所", "巨城"],
+                fare: "1-2元",
+                card: "学生卡无效",
+                note: ""
+            },
+            {
+                id: "14路支",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "会里",
+                stops: ["滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店", "光大银行", "市卫健委", "北山公园", "广电大厦", "开发区管委会", "宏苑一区", "宏苑二区", "世纪宏苑", "吉祥苑乐", "铝矾土矿", "天成集运", "长岭", "华鑫电气", "柳沟新村", "射击射箭馆", "大西庄", "郊区孙家沟", "小西庄", "通宝鑫能物流园", "下白泉", "看守所", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄", "段家庄口", "小河北", "大麦峪", "水峪桥西", "水峪", "圪套", "巨城卫生院", "巨城派出所", "巨城","会里"],
+                fare: "1-3元",
+                card: "学生卡无效",
+                note: ""
+            },
+            {
+                id: "15路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "下烟",
+                stops: ["滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店", "光大银行", "市卫健委", "北山公园", "广电大厦", "开发区管委会", "宏苑一区", "宏苑二区", "世纪宏苑", "吉祥苑乐", "铝矾土矿", "天成集运", "长岭", "华鑫电气", "柳沟新村", "射击射箭馆", "大西庄", "郊区孙家沟", "小西庄", "通宝鑫能物流园", "下白泉", "日加", "窑沟", "新瑞昌", "下烟"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            {
+                id: "15路支",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "下白泉村",
+                stops: ["滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店", "光大银行", "市卫健委", "北山公园", "广电大厦", "开发区管委会", "宏苑一区", "宏苑二区", "世纪宏苑", "吉祥苑乐", "铝矾土矿", "天成集运", "长岭", "华鑫电气", "柳沟新村", "射击射箭馆", "大西庄", "郊区孙家沟", "小西庄", "通宝鑫能物流园", "下白泉", "下白泉村"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            {
+                id: "16路",
+                system: "城区",
+                start: "火车站",
+                end: "坑口",
+                stops: ["火车站", "市口腔医院（德胜街院区）", "天桥", "市政府", "市一院", "田园菜市场", "阳泉记忆1947", "南庄口", "第五人民医院", "幼儿园", "蔬菜市场", "办公楼", "南煤集团", "坑口"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "市口腔医院-市一院段只在回程经过"
+            },
+            { 
+                id: "16路支",
+                system: "城区",
+                start: "天桥",
+                end: "南庄村",
+                stops: [ "天桥", "市口腔医院（德胜街院区）", "田园菜市场", "阳泉记忆1947", "南庄口", "第五人民医院", "瑞康小区","南庄村"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "18路",
+                system: "城区",
+                start: "赵家庄",
+                end: "滨河公交车场",
+                stops: ["赵家庄", "苏峪口", "苏村", "五矿商场", "复兴实验中学", "阳煤二院", "水磨湾", "梅竹花园", "五矿桥头", "贵石沟", "贵石沟村委会", "瑞源学校", "庙沟", "新乡小区", "平定孙家沟","姜家沟东", "东关花园", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府", "银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场"],
+                fare: "1元",
+                card: "公交IC卡仅限滨河公交车场 ↔ 东关段使用",
+                note: "去程不经过保晋文化园、返程不经过沃尔玛"               
+            },
+            { 
+                id: "18路支",
+                system: "城区",
+                start: "下治头",
+                end: "滨河公交车场",
+                stops: ["下治头", "范家庄","赵家庄", "苏峪口", "苏村", "五矿商场", "复兴实验中学", "阳煤二院", "水磨湾", "梅竹花园", "五矿桥头", "贵石沟", "贵石沟村委会", "瑞源学校", "庙沟", "新乡小区", "平定孙家沟","姜家沟东", "东关花园", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府", "银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场"],
+                fare: "1元",
+                card: "公交IC卡仅限滨河公交车场 ↔ 东关段使用",
+                note: "去程不经过保晋文化园、返程不经过沃尔玛"               
+            },
+            { 
+                id: "20路",
+                system: "城区",
+                start: "恒大帝景",
+                end: "农产品批发市场",
+                stops: [ "恒大帝景", "碧桂园", "巨兴小区（西门）", "泉西路桃源街口", "古城小区", "泉西路青年街口", "古城口","城区人民医院", "光大银行","银鹰金店", "沃尔玛","滨河公交车场","滨河世纪城", "滨河豪庭", "万通市场","铁路桥南","化工厂家属区", "燕竹花园","嘉年华东","南庄村口", "农产品批发市场" ],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "20路区间",
+                system: "城区",
+                start: "恒大帝景",
+                end: "银鹰金店",
+                stops: [ "恒大帝景", "碧桂园", "巨兴小区（西门）", "泉西路桃源街口", "古城小区", "泉西路青年街口", "古城口","城区人民医院", "光大银行","银鹰金店"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "21路",
+                system: "城区",
+                start: "火车站",
+                end: "火车站",
+                stops: [ "火车站", "市一院", "市人大", "市三院", "干休所", "福利院", "北岭坡","小阳泉西垴", "小阳泉","市人大", "市政府","天桥","市口腔医院（德胜街院区", "火车站"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "曾经这条线路分为上环和下环"
+            },
+            { 
+                id: "22路",
+                system: "城区",
+                start: "火车站",
+                end: "西峪",
+                stops: [ "火车站", "市一院", "市人大", "市三院", "城南皮肤病医院", "育英学校", "大阳泉","木材市场", "西峪口","家属区", "大阳泉矿","西峪"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "22路支1",
+                system: "城区",
+                start: "火车站",
+                end: "西峪掌",
+                stops: [ "火车站", "市一院", "市人大", "市三院", "城南皮肤病医院", "育英学校", "大阳泉","木材市场", "西峪口","家属区", "大阳泉矿","西峪","西峪掌"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "22路支2",
+                system: "城区",
+                start: "火车站",
+                end: "神峪",
+                stops: [ "火车站", "市一院", "市人大", "市三院", "城南皮肤病医院", "育英学校", "大阳泉","木材市场", "神峪口","神峪"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "24路",
+                system: "城区",
+                start: "山西工院",
+                end: "山西工院",
+                stops: [ "山西工院", "祥禾大酒店", "东方幼儿园", "康达小区", "阳泉十中", "广电大厦", "北山公园","大连街西口", "光大银行","美隆国际", "市政府","市一院","市口腔医院（新华街院区）", "阳光小区", "嘉瑞梧桐园","阳泉记忆1947","田园菜市场", "市一院","市政府","光大银行", "市卫健委","北山公园","阳泉十中", "康达小区","东方幼儿园","祥禾大酒店", "山西工院" ],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "25路",
+                system: "城区",
+                start: "山西工院",
+                end: "山西工院",
+                stops: [ "山西工院", "祥禾大酒店", "东方幼儿园", "康达小区", "阳泉市中心血站", "澳丽丝涂料", "宏苑二区","宏苑一区","开发区管委会","广电大厦", "北山公园","大连街西口", "光大银行","银鹰金店", "华联","隆鑫","总工会", "药材站", "经贸局", "万通市场","凤凰城","第四人民医院","火车站","市口腔医院（德胜街院区","天桥", "市建行","光大银行", "市卫健委","北山公园","广电大厦","开发区管委会","宏苑一区","宏苑二区","澳丽丝涂料","阳泉市中心血站","康达小区","北山公园（东门）", "康达医院","祥禾大酒店", "山西工院" ],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "26路",
+                system: "城区",
+                start: "万通市场",
+                end: "魏家峪新村",
+                stops: [ "万通市场", "经贸局", "药材站", "总工会", "隆鑫", "三中", "光大银行","城区人民医院","古城口","青年街泉西路口", "洪城河","西府海棠","龙凤沟", "中源康养小镇", "甘河村","丰华双语学校","桃林人家", "桃林沟","魏家峪口","魏家峪新村"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "26路支",
+                system: "城区",
+                start: "万通市场",
+                end: "桃林沟果蔬市场",
+                stops: [ "万通市场", "经贸局", "药材站", "总工会", "隆鑫", "三中", "光大银行","城区人民医院","古城口","青年街泉西路口", "洪城河","西府海棠","龙凤沟", "中源康养小镇", "甘河村","丰华双语学校","桃林人家", "桃林沟","魏家峪口","魏家峪","桃林沟果树市场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "27路",
+                system: "城区",
+                start: "火车站",
+                end: "火车站",
+                stops: ["火车站", "市一院", "市人大", "小阳泉", "小阳泉西垴", "阳泉干部学院", "西府大院（彩石园）","东窑房", "蔡洼","辰光家园", "华越机械","二矿口","四矿口", "俱乐部", "蔡洼","东窑房","西府大院（彩石园）", "阳泉干部学院","小阳泉西垴","小阳泉", "市人大", "市政府", "天桥", "市口腔医院（德胜街院区）", "火车站" ],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "28路",
+                system: "城区",
+                start: "阳光新区",
+                end: "桃林沟果蔬市场",
+                stops: [ "阳光新区", "太行国际新城", "三矿医院", "十五中", "华越机械二厂", "二矿供应科", "虎尾沟桥南","二矿办公楼", "水泉沟桥","二号门岗", "二矿口","华越机械","辰光家园", "馨康二期", "西山口","桃林沟果蔬市场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "30路",
+                system: "城区",
+                start: "天桥",
+                end: "铝氧厂",
+                stops: [ "天桥", "市口腔医院（德胜街院区）", "火车站", "化工厂", "城区政府", "阳泉四中", "体育馆","山西银行", "义井桥","白羊墅桥", "特种水泥","小河村","铝氧厂一号楼", "铝氧厂"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "30路支",
+                system: "城区",
+                start: "天桥",
+                end: "乱流",
+                stops: [ "天桥", "市口腔医院（德胜街院区）", "火车站", "化工厂", "城区政府", "阳泉四中", "体育馆","山西银行", "义井桥","白羊墅桥", "特种水泥","小河村","铝氧厂一号楼", "铝氧厂","乱流"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "31路",
+                system: "城区",
+                start: "天桥",
+                end: "瀑里",
+                stops: [ "天桥", "市口腔医院（德胜街院区）", "火车站", "化工厂", "城区政府", "阳泉四中", "体育馆","山西银行", "义井桥","义井公交车场", "南边堰","瀑里村口","瀑里新居", "瀑里"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "32路",
+                system: "城区",
+                start: "颐康四区",
+                end: "白羊墅村",
+                stops: [ "颐康四区", "嘉瑞大厦", "安康家园", "滨河公交车场", "保晋文化园", "华联", "隆鑫","总工会", "药材站","经贸局", "万通市场","农贸市场","供电局宿舍", "上五渡","日昱城","科技园","三和园","北海路南","龙翔园","王垅","石油公司","白羊墅站","圪台村","工务段","白羊墅村委会","白羊墅"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "33路",
+                system: "城区",
+                start: "阳泉东站",
+                end: "北岭坡",
+                stops: [ "阳泉东站", "御康山庄", "阳泉十中", "开发区管委会", "宏苑一区", "宏苑二区", "开发区公交车场","颐康四区", "嘉瑞大厦","安康家园", "总工会","隆鑫","三中", "市政府", "市人大","小阳泉","小阳泉西垴", "北岭坡"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "33路支",
+                system: "城区",
+                start: "阳泉东站",
+                end: "北岭坡",
+                stops: [ "阳泉东站", "御康山庄", "阳泉十中", "开发区管委会", "宏苑一区", "宏苑二区", "开发区公交车场","颐康四区", "嘉瑞大厦","安康家园", "总工会","隆鑫","三中", "市政府", "市人大","小阳泉","小阳泉西垴", "北岭坡"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "这个线路好像和主线完全一样。"
+            },
+            { 
+                id: "34路",
+                system: "城区",
+                start: "天桥",
+                end: "白羊墅村",
+                stops: ["天桥", "市口腔医院（德胜街院区）", "火车站", "化工厂", "城区政府", "阳泉四中", "体育馆","山西银行", "河电宾馆", "东昌装饰城", "河坡村", "龙翔园", "王垅村", "石油公司", "白羊墅站","圪台村", "工务段","白羊墅村委会", "白羊墅村"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "35路",
+                system: "城区",
+                start: "银鹰金店",
+                end: "王垅",
+                stops: ["银鹰金店", "光大银行", "市卫健委", "北山公园", "广电大厦", "开发区管委会","宏苑一区","宏苑二区", "世纪宏苑","交警四大队", "日昱城","科技园","三和园", "智能产业园西门", "阳泉日报社","智能产业园","阀门公司北", "智能产业园","阳泉日报社","智能产业园西门", "北海路南", "龙翔园", "王垅"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "智能产业园西门-阀门公司北段都经过两次的原因是：在阀门公司北这一站掉头。"
+            },
+            { 
+                id: "36路",
+                system: "城区",
+                start: "融尚家居",
+                end: "政务服务中心",
+                stops: ["融尚家居", "义东沟村", "万年花城", "南庄沟口", "嘉年华", "燕竹花园", "化工厂家属区","铁路桥南", "万通市场","经贸局", "药材站","总工会","隆鑫", "三中", "光大银行","青年路口","平坦垴", "居馨花园","泉中花园","健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "致诚汽贺","政务服务中心"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "由于政务服务中心站不方便拐弯，所以绕道汉河沟进行掉头，回程不需要绕道"
+            },
+            { 
+                id: "36路支",
+                system: "城区",
+                start: "融尚家居",
+                end: "李家庄新村",
+                stops: ["融尚家居", "义东沟村", "万年花城", "南庄沟口", "嘉年华", "燕竹花园", "化工厂家属区","铁路桥南", "万通市场","经贸局", "药材站","总工会","隆鑫", "三中", "光大银行","青年路口","平坦垴", "居馨花园","泉中花园","健康体检中心", "玉泉中学", "李家庄新村"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "37路",
+                system: "城区",
+                start: "东城水岸",
+                end: "东城水岸",
+                stops: ["东城水岸", "下五渡村", "吉祥苑东", "铝矾土矿", "二十中", "都市兰庭", "珍宝园","万达广场", "蓝丝带月子会所","保晋路北", "保晋路南","后底沟","光大银行", "银鹰金店", "沃尔玛","滨河公交车场","滨河世纪城", "滨河豪庭","农贸市场","供电局宿舍", "上五渡", "下五渡村", "东城水岸"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "40路",
+                system: "城区",
+                start: "阳泉东站",
+                end: "阳泉东站",
+                stops: [ "阳泉东站", "御康山庄", "康达小区", "阳泉市中心血站", "二十中", "都市兰亭", "珍宝园","万达广场", "蓝丝带月子会所","保晋路北", "保晋路南","后底沟","光大银行", "美隆国际", "市政府","市一院","化工厂", "城区政府","化工厂家属区","铁路桥南", "凤凰城", "第四人民医院", "市口腔医院（德胜街院区", "天桥", "市建行", "光大银行", "后底沟","保晋路南", "保晋路北","万达广场", "珍宝园","都市兰亭","祥和大酒店", "康达医院", "北山公园（东门）","御康山庄","阳泉东站"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "曾经这个车的行驶区间是阳泉东站-凤凰城，后面升级成了环线线路"
+            },
+            { 
+                id: "42路",
+                system: "城区",
+                start: "火车站",
+                end: "阳泉职业技术学院",
+                stops: [ "火车站", "第四人民医院", "凤凰城", "农贸市场", "供电局宿舍", "上五渡", "吉祥苑东","铝矾土矿", "天成集运","长岭", "华新电器","柳沟新村","三名集团南", "大西庄南", "阳泉职业技术学院"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "42路支",
+                system: "城区",
+                start: "火车站",
+                end: "阳泉职业技术学院",
+                stops: [ "火车站", "化工厂", "城区政府", "阳泉四中", "体育馆", "山西银行", "河电宾馆","东昌装饰城", "河坡","氧化铝", "华泰伟业","车管所","亚美水泥", "齐家岩", "阳泉职业技术学院"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "101路",
+                system: "城区",
+                start: "万通市场",
+                end: "一矿",
+                stops: [ "万通市场", "滨河世纪城", "滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿" ],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "101路支",
+                system: "城区",
+                start: "万通市场",
+                end: "黄石板",
+                stops: [ "万通市场", "经贸局", "药材站","总工会", "隆鑫", "三中","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿","一矿供应科","一矿综合楼","黄石板"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "有说法是这辆车的前身是801路，但是真伪有待考究。"
+            },
+            { 
+                id: "102路",
+                system: "城区",
+                start: "万通广场",
+                end: "市十四中",
+                stops: [ "万通市场", "经贸局", "药材站", "总工会", "隆鑫", "三中", "银鹰金店","文化中心南口", "少年宫","自来水公司", "华阳集团口","阳泉开放大学","平潭街口", "矿区政府", "俱乐部","机电工区","一号门岗", "二矿广场","蔡洼新居","市十四中"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "曾经有一辆车叫112路，这辆车后来与102路合并，成为现在的新102路。"
+            },
+            { 
+                id: "102路区间",
+                system: "城区",
+                start: "万通市场",
+                end: "二矿广场",
+                stops: [ "万通市场", "经贸局", "药材站", "总工会", "隆鑫", "三中", "银鹰金店","文化中心南口", "少年宫","自来水公司", "华阳集团口","阳泉开放大学","平潭街口", "矿区政府", "俱乐部","机电工区","一号门岗", "二矿广场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "103路",
+                system: "城区",
+                start: "阳泉一中",
+                end: "水泉沟",
+                stops: [ "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中","城区政府", "化工厂","市一院", "市政府","美隆国际","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "104路",
+                system: "城区",
+                start: "万通市场",
+                end: "四矿广场",
+                stops: [ "万通市场", "滨河世纪城", "滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店", "公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "十六中","四矿小区","四矿广场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "104路支",
+                system: "城区",
+                start: "万通市场",
+                end: "四矿广场",
+                stops: [ "万通市场", "经贸局", "药材站", "总工会", "隆鑫", "三中", "公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "十六中","四矿小区","四矿广场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "106路",
+                system: "城区",
+                start: "华鑫电气",
+                end: "阳光新区",
+                stops: [ "华鑫电气", "长岭", "天成集运", "铝矾土矿", "吉祥苑东", "吉祥苑南", "宏苑二区","宏苑一区", "康达小区","阳泉十中", "广电大厦","北山公园","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "三矿医院", "太行国际新城", "阳光新区"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "106路支",
+                system: "城区",
+                start: "阳泉职业技术学院",
+                end: "阳光新区",
+                stops: ["阳泉职业技术学院","大西庄南","三名集团南","柳沟新村", "华鑫电气", "长岭", "天成集运", "铝矾土矿", "吉祥苑东", "吉祥苑南", "宏苑二区","宏苑一区", "康达小区","阳泉十中", "广电大厦","北山公园","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "三矿医院", "太行国际新城", "阳光新区"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "106路区间",
+                system: "城区",
+                start: "华鑫电气",
+                end: "水泉沟",
+                stops: [ "华鑫电气", "长岭", "天成集运", "铝矾土矿", "吉祥苑东", "吉祥苑南", "宏苑二区","宏苑一区", "康达小区","阳泉十中", "广电大厦","北山公园","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "107路",
+                system: "城区",
+                start: "东城水岸",
+                end: "香河苑",
+                stops: [ "东城水岸", "下五渡村", "上五渡", "供电局宿舍", "农贸市场", "滨河世纪城", "保晋文化园","沃尔玛", "银鹰金店","公路局", "文化宫","华阳集团","平潭街", "十二中","阳煤大学", "大垴西小区","东山小区","阳煤职校", "北艺装潢", "西河村口","香河苑"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "西河村口仅在去程经过，阳煤大学-北艺装潢仅在返程经过。"
+            },
+            { 
+                id: "108路",
+                system: "城区",
+                start: "东城水岸",
+                end: "阳光新区",
+                stops: [ "东城水岸", "下五渡村", "上五渡", "供电局宿舍", "农贸市场", "滨河世纪城", "保晋文化园","沃尔玛", "银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "三矿医院", "太行国际新城", "阳光新区"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "108路应该是阳泉公交最平直的一条线路，从起点到终点站几乎是一条直线。"
+            },
+            { 
+                id: "109路",
+                system: "城区",
+                start: "一矿",
+                end: "桃林沟果蔬市场",
+                stops: ["一矿", "里沙坪", "前庄", "一矿医院", "沙坪", "三矿广场", "三矿", "赛鱼", "十五中", "矿区法院", "馨泽苑", "虎尾沟", "世纪明珠", "水泉沟", "四矿口", "机电工区", "俱乐部","华越机械","辰光家园","馨康二期", "西山口","桃林沟果蔬市场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "110路",
+                system: "城区",
+                start: "巨兴小区",
+                end: "水泉沟",
+                stops: [ "巨兴小区", "泉西路桃源街口", "古城小区", "泉西路青年街口","华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "三矿医院", "太行国际新城", "阳光新区"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "111路",
+                system: "城区",
+                start: "阳泉东站",
+                end: "一矿",
+                stops: [ "阳泉东站", "市规划展览馆", "市一院新院区", "玉泉中学东", "保晋路北", "保晋路南", "后底沟","大连街西口","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "原K1路，因线路始发终点站较容易混淆原K1路区间，故更名为111路。该线路经过市一院新院区。"
+            },
+            { 
+                id: "113路",
+                system: "城区",
+                start: "阳泉东站",
+                end: "一矿",
+                stops: [ "阳泉东站", "御康山庄", "阳泉十中", "广电大厦", "北山公园","大连街西口","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "原K1路区间，因线路始发终点站较容易混淆原K1路，故更名为113路。该线路不经过市一院新院区。"
+            },
+            { 
+                id: "120路",
+                system: "城区",
+                start: "火车站",
+                end: "市一院住院部",
+                stops: [ "火车站", "市一院", "市政府", "美隆国际", "光大银行","银鹰金店", "后底沟", "保晋路南","保晋路北", "万达广场西","玉泉中学东","市一院新院区","市一院门诊部","市一院住院部"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "市一院新院区站和美隆国际站只在返程经过，返程走银鹰金店，去程走光大银行。该车原先起点站是银鹰金店，后来延伸至火车站。"
+            },
+            { 
+                id: "201路",
+                system: "城区",
+                start: "东城水岸",
+                end: "东关",
+                stops: [ "东城水岸", "下五渡村", "上五渡", "供电局宿舍", "农贸市场", "滨河世纪城", "保晋文化园","沃尔玛", "银鹰金店","美隆国际", "市政府","市一院","田园菜市场", "阳泉记忆1947", "南庄口", "恒大新城", "嘉年华", "南庄沟口","万年花城","义东沟村","融尚家居","义井公交车场", "南边堰", "阳泉一中", "省运桥", "河下综合市场", "市司法局", "友爱医院", "坐标城", "县医院", "评梅广场", "平定县实验小学","新安五区","平定一中","嘉苑小区","阳泉师专","南苑人家","康复医院","姜家沟","森宇商厦", "东关"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "高峰期人真的非常多。自7月3日起，因姜家沟至森宇商厦路段修工，去程绕行七一路（南），新建西路至东关，森宇商厦和东关两个站点临时取消，返程路线不变。"
+            },
+            { 
+                id: "204路",
+                system: "城区",
+                start: "东城水岸",
+                end: "西锁簧",
+                stops: [ "东城水岸", "下五渡村", "上五渡", "供电局宿舍", "农贸市场", "滨河世纪城", "保晋文化园","沃尔玛", "银鹰金店","美隆国际", "市政府","市一院","化工厂", "城区政府", "阳泉四中", "体育馆", "山西银行", "义井桥", "义井公交车场", "南边堰", "阳泉一中", "省运桥", "河下综合市场", "市司法局", "友爱医院", "坐标城", "县医院", "评梅广场", "金地商厦", "森宇商厦", "东关","平定体育馆","平定二中","大林山","东方驾校","再乐公司","洗马堰","常家沟口","新派小学","南坳中学","南坳桥","阳光电厂","冠庄","阳光电厂","西锁簧"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "原线线路运行区间为滨河公交车场-西锁簧，后将滨河公交车场扩展为东城水岸。"
+            },
+            { 
+                id: "205路",
+                system: "城区",
+                start: "东城水岸",
+                end: "冶西",
+                stops: [ "东城水岸", "下五渡村", "上五渡", "供电局宿舍", "农贸市场", "滨河世纪城", "保晋文化园","沃尔玛", "银鹰金店","美隆国际", "市一院","田园菜市场","阳泉记忆1947", "南庄口", "恒大新城","嘉年华东","南庄村口", "农产品批发市场","胡家庄","河头", "杨家沟", "平定县中医院", "平定县交通局", "山河汽车批发市场", "庙沟西", "瑞源学校", "贵石沟村委会","贵石沟", "五矿桥头","聂家庄", "小河滩小区","五矿发电厂","冶西",],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "原线线路运行区间为滨河公交车场-冶西，后将滨河公交车场扩展为东城水岸。"
+            },
+            { 
+                id: "206路",
+                system: "城区",
+                start: "晋东加气站",
+                end: "阳泉东站",
+                stops: ["晋东加气站", "海磊物流园", "东升市场", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府","美隆国际", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心","玉泉中学南", "万达广场西", "玉泉中学东", "市一院新院区", "阳泉东站"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效。",
+                note: "高峰期人很多，本车经过市一院新院区和阳泉东站"
+            },
+            { 
+                id: "206路区间",
+                system: "城区",
+                start: "东升市场",
+                end: "珍宝园",
+                stops: ["东升市场", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府","美隆国际", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心","玉泉中学南", "万达广场", "珍宝园"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效。",
+                note: "高峰期人很多，本车不经过市一院新院区和阳泉东站。原本这个车和平定708路公交的路线基本重合就被取消了，但是新医院开通以后，原206路改线经过市一院新院区，这条线路就有了应有的价值。（不过为什么不学习K1路，把两个车拆开编号，虽然始发终到站不一样了，但还是容易混淆）"
+            },
+            { 
+                id: "301路",
+                system: "城区",
+                start: "颐康四区",
+                end: "雅馨园",
+                stops: ["颐康四区","嘉瑞大厦","安康家园","滨河公交车场","保晋文化园","沃尔玛","银鹰金店","光大银行","后底沟", "保晋路南", "保晋路北","万达广场西","玉泉中学东", "市一院新院区", "市规划展览馆","余积粮沟新村","三泉口","三泉新村","雅馨园"], 
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "2026年8月1日起，该线路始发站临时从滨河公交车场调整为颐康四区（曾经的3路公交车改线以后变成了301路）"
+            },
+            { 
+                id: "303路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "固庄矿",
+                stops: ["滨河公交车场", "保晋文化园", "银鹰金店","沃尔玛", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "千亩坪", "旧二院", "众恒回收", "杨树沟", "三郊口", "三都", "铁路桥北", "苇泊工业园", "南峪口", "固庄矿大门", "固庄矿体育场", "工商银行固庄矿支行", "固庄矿俱乐部", "生产楼", "固庄村口","坑木场", "二大队", "固庄矿"],
+                fare: "1-3元",
+                card: "学生卡无效",
+                note: ""
+            },
+            { 
+                id: "304路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "林里",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "南窑庄", "上烟口", "上烟", "林里桥", "林里"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "305路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "西梨庄",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "林里","上白泉耐火厂","白泉中学","西梨庄口","西梨庄"],
+                fare: "1-2元",
+                card: "学生卡无效",
+                note: ""
+            },
+            { 
+                id: "306路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "郊区交通运输局",
+                stops: ["滨河公交车场","保晋文化园","沃尔玛","银鹰金店","光大银行","后底沟", "保晋路南", "保晋路北","万达广场西","玉泉中学东", "市一院新院区", "市规划展览馆","余积粮沟新村","三泉口","三泉新村","郊区政府","郊区交通运输局"], 
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "500路",
+                system: "城区",
+                start: "刘备山",
+                end: "上千亩坪",
+                stops: [ "刘备山", "荫营矿车管科", "育才小学", "坪上村", "街上村", "后沟口", "镇政府","荫营", "荫营中学","二院", "郊区交通运输局","郊区政府","佳瑞园","高速口", "西菇口","下千亩坪","上千亩坪"],
+                fare: "0元",
+                card: "不需要",
+                note: "阳泉市唯一一条常驻的免费线路，客流很多。"
+            },
+            { 
+                id: "501路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "东村",
+                stops: [ "滨河公交车场", "保晋文化园", "沃尔玛","银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "千亩坪", "旧二院", "众恒回收", "杨树沟", "三郊口", "三都", "铁路桥北", "苇泊工业园", "南峪口", "固庄矿东大门", "苇泊", "工钢", "河底中学", "融浦小区", "河底","牵牛镇", "三岔口", "红土岩", "山底","红土岩","东村"],
+                fare: "1-3元",
+                card: "学生卡无效",
+                note: ""
+            },
+            { 
+                id: "505路",
+                system: "城区",
+                start: "颐康四区",
+                end: "东菇",
+                stops: [ "颐康四区", "嘉瑞大厦", "安康家园","滨河公交车场", "保晋文化园", "沃尔玛","银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "西菇口", "西菇", "鑫盛瓷业","东菇"],
+                fare: "1-2元",
+                card: "学生卡无效",
+                note: ""
+            },
+             { 
+                id: "512路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "张家井",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "三郊", "前洼", "后洼", "韩庄", "河南口", "西南舁", "东南舁", "石窑垴", "郊山", "东南舁", "西南舁", "大洼", "张家井"],
+                fare: "1-4元",
+                card: "学生卡无效",
+                note: ""
+            },
+            {
+                id: "514路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "小河北",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "千亩坪", "旧二院", "众恒回收", "杨树沟", "三郊口", "三都", "铁路桥北", "苇泊工业园", "南峪口", "固庄矿东大门", "苇泊", "工钢", "河底中学", "融浦小区", "河底","猪头垴","苏家泉","东南沟","小河北"],
+                fare: "1~4元",
+                card: "学生卡无效",
+                note: ""
+            },
+             { 
+                id: "516路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "咀子上村",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "三郊", "前洼", "后洼", "韩庄", "河南口", "西南舁口", "霍树头", "北小西庄", "北舁口", "北舁村口", "王家庄", "代家庄","杜家庄", "咀子上村"],
+                fare: "1-4元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "517路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "辛庄",
+                stops: [ "滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "三郊", "前洼", "后洼", "韩庄","马庄","小庄","辛庄" ],
+                fare: "1-3元",
+                card: "学生卡无效",
+                note: "仅在每周一、三、五开行，辛庄有“晋东小延安”之美誉"
+            },
+            { 
+                id: "519路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "东垴",
+                stops: [ "滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "西垴", "东垴"],
+                fare: "1-2元",
+                card: "学生卡无效",
+                note: ""
+            },
+            { 
+                id: "524路",
+                system: "城区",
+                start: "刘备山",
+                end: "杨家庄乡政府",
+                stops: ["刘备山", "荫营矿车管科", "育才小学", "坪上村", "街上村", "后沟口", "镇政府","荫营", "荫营中学","二院", "郊区交通运输局","郊区政府","佳瑞园","高速口", "白泉","看守所","华润燃气","河坡发电", "下烟", "新瑞昌", "窑沟", "日加", "杨家庄口","桃岩口","杨家庄乡政府"],
+                fare: "2元",
+                card: "学生卡无效",
+                note: ""
+            },
+            { 
+                id: "525路",
+                system: "城区",
+                start: "刘备山",
+                end: "小河北",
+                stops: ["刘备山", "荫营矿车管科", "育才小学", "坪上村", "街上村", "后沟口", "镇政府","荫营", "荫营中学","二院", "南窑庄","上烟口","林里桥","林里", "上白泉耐火厂","上白泉","白泉","上白泉", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄","段家庄口", "小河北"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "525路区间",
+                system: "城区",
+                start: "刘备山",
+                end: "上白泉耐火厂",
+                stops: ["刘备山", "荫营矿车管科", "育才小学", "坪上村", "街上村", "后沟口", "镇政府","荫营", "荫营中学","二院", "南窑庄","上烟口","林里桥","林里", "上白泉耐火厂","上白泉","白泉","上白泉", "上白泉耐火厂"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            {
+                id: "526路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "任家峪",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "佳瑞园", "高速口", "千亩坪", "旧二院", "众恒回收", "杨树沟", "三郊口", "三都", "铁路桥北", "苇泊工业园", "南峪口", "任家峪"],
+                fare: "1~2元",
+                card: "学生卡无效",
+                note: ""
+            },
+            { 
+                id: "532路",
+                system: "城区",
+                start: "刘备山",
+                end: "桃林沟果蔬市场",
+                stops: ["刘备山", "荫营矿车管科", "育才小学", "坪上村", "街上村", "后沟口", "镇政府","荫营广场", "荫营中学", "郊区交通运输局", "二院", "荫营中学", "荫营", "荫营二中", "金桥二耐", "聚鑫汽配", "交通集团", "汇通商务会馆", "黄沙岩", "汉河沟", "致诚汽贺", "政务服务中心","魏家峪大桥", "桃林沟果蔬市场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "542路",
+                system: "城区",
+                start: "旧街",
+                end: "后山",
+                stops: [ "旧街", "河口桥", "阳窑", "保安窑", "枣园", "保安", "梁家庄口","虎峪口", "虎峪村","阳坡口", "里五村","闫家庄","后山"],
+                fare: "2元",
+                card: "待核实",
+                note: "貌似是从10路那几条线分出来的，这条线信息有点少，据说一天只有一对车。"
+            },
+            { 
+                id: "802路",
+                system: "城区",
+                start: "西峪",
+                end: "水泉沟",
+                stops: [ "西峪", "大阳泉矿", "家属区", "西峪口", "木材市场", "大阳泉", "育英学校","城南皮肤病医院", "市三院","市人大","市政府", "美隆国际","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "这条公交线路的客流非常庞大，并且发车间隔比较长，如果实在挤不上，可以选择22路（及其支路）换乘103路。另外，这条线路在雨雪天时上不了大阳坡，会绕行大阳泉-田园菜市场->市一院这一段"
+            },
+            { 
+                id: "803路",
+                system: "城区",
+                start: "黄石板",
+                end: "高速路西口",
+                stops: [ "黄石板", "一矿综合楼", "一矿供应科", "一矿", "里沙坪", "前庄", "一矿医院","沙坪", "三矿广场","三矿", "赛鱼","三矿医院","太行国际新城", "阳光新区", "龙泉驾校","银园山庄","马家坡口", "平坦镇政府","圣泉寺","芦湖新村", "桑掌桥", "新景矿", "热电三厂", "高速路西口"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "805路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "五组团",
+                stops: [ "滨河公交车场", "保晋文化园","沃尔玛","银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园","聋哑学校", "五组团"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "曾经这个车的行驶区间是银鹰金店-五组团，是阳泉公交常规线路最短的车次（延长以后的现在应该还是）"
+            },
+            { 
+                id: "806路",
+                system: "城区",
+                start: "王家峪",
+                end: "交通驾校",
+                stops: [ "王家峪", "木材市场", "大阳泉", "育英学校", "城南皮肤病医院", "市三院", "市政府","光大银行", "青年路口","平坦垴", "居馨花园","泉中花园","健康体检中心", "玉泉中学", "李家庄新村","殡仪馆","政务服务中心", "致诚汽贺","汉河沟","黄沙岩","汇通商务会馆", "交通驾校"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "曾经这条线路有4条支路，甚至出现过支线比主线的车次还多的情况，后来将它们合并成一条线路，解决了线路的冗余问题"
+            },
+            { 
+                id: "806路区间",
+                system: "城区",
+                start: "王家峪",
+                end: "李家庄新村",
+                stops: [ "王家峪", "木材市场", "大阳泉", "育英学校", "城南皮肤病医院", "市三院", "市政府","光大银行", "青年路口","平坦垴", "居馨花园","泉中花园","健康体检中心", "玉泉中学", "李家庄新村"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "808路",
+                system: "城区",
+                start: "阀门公司北",
+                end: "阳光新区",
+                stops: [ "阀门公司北", "智能产业园", "阳泉日报社", "智能产业园西门", "三和园", "科技城", "日昱城","交警四大队", "上五渡","供电局宿舍", "万通市场","经贸局","药材站", "总工会", "隆鑫","三中","天元商厦", "西河滩","洪城桥南","简子沟", "华洋物流", "橙光小区", "华越机械", "二矿口", "二号门岗", "水泉沟桥", "二矿办公楼","虎尾沟桥南", "华越机械二厂","十五中", "三矿医院","太行国际新城","阳光新区"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "808路支",
+                system: "城区",
+                start: "阀门公司北",
+                end: "银园山庄",
+                stops: [ "阀门公司北", "智能产业园", "阳泉日报社", "智能产业园西门", "三和园", "科技城", "日昱城","交警四大队", "上五渡","供电局宿舍", "万通市场","经贸局","药材站", "总工会", "隆鑫","三中","天元商厦", "西河滩","洪城桥南","简子沟", "华洋物流", "橙光小区", "华越机械", "二矿口", "二号门岗", "水泉沟桥", "二矿办公楼","虎尾沟桥南", "华越机械二厂","十五中", "三矿医院","太行国际新城","阳光新区","银园山庄"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "808路区间",
+                system: "城区",
+                start: "三和园",
+                end: "阳光新区",
+                stops: ["三和园", "科技城", "日昱城","交警四大队", "上五渡","供电局宿舍", "万通市场","经贸局","药材站", "总工会", "隆鑫","三中","天元商厦", "西河滩","洪城桥南","简子沟", "华洋物流", "橙光小区", "华越机械", "二矿口", "二号门岗", "水泉沟桥", "二矿办公楼","虎尾沟桥南", "华越机械二厂","十五中", "三矿医院","太行国际新城","阳光新区"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "901路",
+                system: "城区",
+                start: "火车站",
+                end: "阳泉北站",
+                stops: [ "火车站", "阳泉北站"],
+                fare: "8元",
+                card: "卡证无效",
+                note: "方便市区乘客前往阳泉北站"
+            },
+            { 
+                id: "K2路",
+                system: "城区",
+                start: "阳泉东站",
+                end: "里社",
+                stops: [ "阳泉东站", "御康山庄", "康达小区", "世纪宏苑", "上五渡", "凤凰城", "火车站","化工厂", "城区政府", "阳泉四中", "体育馆", "山西银行", "义井桥", "义井公交车场", "南边堰", "阳泉一中", "省运桥", "河下综合市场", "市司法局", "友爱医院", "坐标城", "县医院", "评梅广场", "金地商厦", "森宇商厦", "东关"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "原(K)203路，是平定县和老城区到达阳泉东站较快的交通方式。"
+            },
+            { 
+                id: "S1路",
+                system: "城区",
+                start: "一号门岗",
+                end: "一号门岗",
+                stops: [ "一号门岗", "二矿广场", "蔡洼新居", "市十四中", "7号楼", "蔡西社区", "蔡西南路","蔡洼沟东巷", "城市春天","东四尺35号楼", "东四尺21号楼","二矿广场","二号门岗", "一号门岗"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "S2路",
+                system: "城区",
+                start: "一号门岗",
+                end: "一号门岗",
+                stops: [ "一号门岗", "二矿广场", "二矿小区B区", "二矿小区", "二矿广场", "二号门岗", "二矿口","四矿口", "十六中","四矿小区", "四矿广场","桃源居","四矿广场", "四矿小区", "十六中","桥东街西口","一号门岗"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "红8路",
+                system: "城区",
+                start: "铝氧厂",
+                end: "西峪口",
+                stops: [ "铝氧厂", "铝氧厂1号楼", "小河村", "特种水泥", "白羊墅湿地公园", "白羊墅桥", "义井桥","山西银行", "体育馆","阳泉四中", "城区政府","化工厂","市一院", "市人大", "小阳泉","小阳泉西垴","阳泉干部学院", "西府大院（彩石园）","北京现代","丰华学校", "西峪口"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "这个车的车皮曾经是红色的，因为原来的车保险年限到了被封存，所以有段时间换用了普通蓝色车皮，现在貌似又专门做了红色的车皮"
+            },
+            {
+                id: "游1路",
+                system: "城区",
+                start: "火车站",
+                end: "翠峰山",
+                stops: ["火车站", "市一院", "市政府", "美隆国际", "公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "三矿医院", "太行国际新城", "阳光新区","龙泉驾校","莹园山庄","马家坡口","平坦镇政府","圣泉寺","芦湖新村","桑掌桥","中庄","鸿泰煤矿","西上庄","后峪","翠峰山"],
+                fare: "1-3元",
+                card: "学生卡无效",
+                note: "翠峰山旅游专线"
+            },
+            {
+                id: "游2路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "娘子关",
+                stops: ["滨河公交车场", "保晋文化园", "沃尔玛", "银鹰金店", "光大银行", "市卫健委", "北山公园", "广电大厦", "开发区管委会", "宏苑一区", "宏苑二区", "世纪宏苑", "吉祥苑乐", "铝矾土矿", "天成集运", "长岭", "华鑫电气", "柳沟新村", "射击射箭馆", "大西庄", "郊区孙家沟", "小西庄", "通宝鑫能物流园", "下白泉", "看守所", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄", "段家庄口", "小河北", "大麦峪", "水峪桥西", "水峪", "圪套", "巨城卫生院", "巨城派出所", "巨城","会里","拦口","上董寨","下董寨","石桥","坡底","河滩","绿苑小区","娘子关关城","娘子关瀑布","康馨小区","娘子关村委会","水上人家","娘子关"],
+                fare: "1-8元",
+                card: "卡证无效，仅支持现金支付",
+                note: "娘子关旅游专线"
+            },
+            {
+                id: "游3路",
+                system: "城区",
+                start: "滨河公交车场",
+                end: "玉皇洞景区",
+                stops: ["滨河公交车场", "保晋文化园","沃尔玛", "银鹰金店", "光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学", "李家庄新村", "殡仪馆", "政务服务中心", "致诚汽贺", "汉河沟", "黄沙岩", "汇通商务会馆", "交通集团", "聚鑫汽配", "金桥二耐", "荫营二中", "荫营", "荫营中学", "二院", "郊区交通运输局", "郊区政府", "明珠城", "众恒回收", "杨树沟", "三郊口", "郊区社会福利养老中心", "三郊", "前洼", "后洼", "韩庄", "河南口", "西南舁", "五里庄", "雨下沟", "张山峪", "白瑶村口", "罗面咀西", "罗面咀东", "理家庄村口", "郝家庄", "东峪", "铺北","小岭","西家庄","秋林口","神灵台","神水泉(红峪村口)","玻璃栈道","神水泉(红峪村口)","主铺庄","主铺掌","玉皇洞景区"],
+                fare: "1~8元",
+                card: "卡证无效，仅支持现金支付",
+                note: "玉皇洞旅游专线,神水泉-主铺庄一段仅在返程经过，该线路的返程是阳泉公交的最长线路。"
+            },
+            { 
+                id: "游4路",
+                system: "城区",
+                start: "东城水岸",
+                end: "桃林沟果蔬市场",
+                stops: [ "东城水岸", "下五渡村", "上五渡", "供电局宿舍", "农贸市场", "滨河世纪城", "保晋文化园","沃尔玛", "银鹰金店","光大银行", "城区人民医院","古城口","青年路泉西路口(平坦水泵厂)", "洪城河", "西府海棠","龙凤沟","中源康养小镇", "甘河村","丰华双语学校","桃林人家", "桃林沟", "桃河民俗文化园", "桃花源里公园", "桃林欢乐世界(桃林沟饭店)", "桃林沟果蔬市场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: "该线路是全市唯一票价仍为一元的旅游公交，可以去往桃林沟。"
+            },
+            { 
+                id: "狮脑山旅游专线",
+                system: "城区",
+                start: "北岭坡",
+                end: "纪念碑停车场",
+                stops: [ "北岭坡", "纪念碑停车场"],
+                fare: "2元",
+                card: "待核实",
+                note: "直达狮脑山山顶的一条旅游线路，仅在周末和节假日开行。"
+            },
+            // ===== 平定公交 =====
+            { 
+                id: "602路",
+                system: "平定",
+                start: "西城客运站",
+                end: "西城客运站",
+                stops: [ "西城客运站", "鹊山移民新区", "富泽苑","坐标城西", "恒泰新城", "三岔口", "友爱医院","奉贤养老服务中心", "阳泉军分区","桃花源","岭秀华庭","交警队","冠亚建材市场", "天宇汽修", "消防队","驿拓电子","东兴小区", "东升","太阳城","金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "销访局", "坐标城东", "总工会（平定）", "坐标城西", "富泽苑", "鹊山移民新区", "西城客运站"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "603路",
+                system: "平定",
+                start: "里社",
+                end: "客运南站",
+                stops: [ "里社", "中社", "白象沟", "前社家委会", "前社新区", "东兴小区", "东升","太阳城","金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "富泽苑", "公安局","杨家沟小区", "杨家沟口","中医院新址", "检车线","山河汽车批发市场","客运南站"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "605路",
+                system: "平定",
+                start: "中医院新址",
+                end: "中医院新址",
+                stops: [ "中医院新址", "检车线", "山河汽车批发中心", "西外环口", "庙沟村委会", "新乡小区", "孙家沟村委会","伍号苑", "东关花园","司法局","东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "销访局", "坐标城东", "总工会（平定）", "坐标城西", "富泽苑","公安局", "杨家沟小区","杨家沟口","中医院新址","检车线", "山河汽车批发市场","客运南站","山河汽车批发市场", "检车线", "中医院新址"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "611路",
+                system: "平定",
+                start: "南暫石",
+                end: "南暫石",
+                stops: [ "南暫石", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "教育局", "平定一中", "西关小学", "检察院", "公安局", "冠山逸城", "职业高中", "水墨兰亭","阳泉师专","南苑人家","康复医院","姜家沟","森宇商厦", "东关","体育场", "平定二中","大林山","县工业联社", "再乐公司", "洗马堰","政务中心（平定）","金源国际", "太阳城","东升","庄窝", "南暫石"],
+                fare: "1元",
+                card: "待核实",
+                note: "暫读zan四声"
+            },
+            { 
+                id: "612路",
+                system: "平定",
+                start: "冠亚",
+                end: "冠亚",
+                stops: [ "冠亚", "冠亚建材市场", "天宇汽修", "消防队","驿拓电子","东兴小区", "东升","太阳城","金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "新安", "平定一中", "怡德园", "坐标城西", "总工会（平定）", "恒泰新城", "三岔口", "县医院", "评梅广场","金地商厦", "森宇商厦", "东关", "体育场", "平定二中","大林山", "县工业联社","再乐公司", "洗马堰","政务中心（平定）","金源国际", "太阳城", "东升","东兴小区","前社新村", "消防队","天宇汽修","冠亚建材市场", "冠亚"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "613路",
+                system: "平定",
+                start: "冠庄垴",
+                end: "西城客运站",
+                stops: [ "冠状垴", "西锁簧","阳光电厂", "冠庄", "阳光电厂", "南坳桥", "南坳中学", "新派小学", "常家沟口", "洗马堰", "再乐公司", "东方驾校", "大林山", "平定二中", "平定体育馆", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "信访局", "三岔口", "友爱医院", "钢材市场", "西城客运站"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "614路",
+                system: "平定",
+                start: "甘井",
+                end: "客运南站",
+                stops: [ "甘井", "榆树院", "红土洼", "葛家庄", "新庄窝", "维垴", "白家沟","前社村委会", "维社口","前社新村", "东兴小区","东升","太阳城","金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "嘉苑小区", "书香苑", "职业高中","冠山逸城", "杨家沟小区", "杨家沟口","中医院新址","检车线", "山河汽车批发市场","客运南站"],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "615路",
+                system: "平定",
+                start: "王家庄",
+                end: "西城客运站",
+                stops: [ "王家庄", "王家庄村口", "西沟新村", "蒙牛物流园", "评梅学校", "岭上新村", "红卫新村","平定开发区口", "交警队","冠亚建材市场", "天宇汽修","消防队","驿拓电子", "东兴小区", "东升","太阳城","金源国际", "健康大厦","洗马堰", "再乐公司", "县工业联社", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "信访局", "坐标城东", "总工会（平定）", "坐标城西", "公交票卡中心", "西城客运站"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "616路",
+                system: "平定",
+                start: "东升",
+                end: "冶西",
+                stops: [ "东升", "太阳城", "金源国际", "健康大厦", "聚鑫苑", "佳景三期南门", "新派小区", "南川小区", "南坳中学", "南坳村口", "南坳桥", "二电厂", "冠庄村口", "冠庄村西口", "莹玉陶瓷口", "宋家庄泵站", "五矿桥头", "聂家庄", "小河滩小区", "京宇磁材", "冶西" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "617路",
+                system: "平定",
+                start: "东升",
+                end: "胡家庄",
+                stops: ["东升","太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安小区", "平定一中", "嘉苑小区", "书香苑", "职业高中", "冠山逸城", "公安局","小峪", "大峪村委会", "胡家煤矿", "胡家庄"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "618路",
+                system: "平定",
+                start: "东升",
+                end: "上庄",
+                stops: [ "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安小区", "平定一中", "嘉苑", "书香苑", "职业中学", "冠山逸城", "丽景华府", "四叶科技", "河头村", "河头峪", "潘家峪", "锦茂公司", "后沟口", "上庄" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "619路",
+                system: "平定",
+                start: "东升",
+                end: "中医院新址",
+               stops: [ "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安小区", "平定一中", "嘉苑", "师范附小", "嘉山小区", "熙龙湾", "县交通局", "检车线", "中医院新址" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "620路",
+                system: "平定",
+                start: "东升",
+                end: "农产品批发市场",
+                stops: [ "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安小区", "平定一中", "嘉苑", "书香苑", "职业中学", "冠山逸城", "丽景华府", "四叶科技", "大峪口", "胡家庄", "农产品批发市场" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "626路",
+                system: "平定",
+                start: "乱流村口",
+                end: "西城客运站",
+                stops: [ "乱流村口", "乱流加油站", "小会村", "南坪学校", "南坪村", "南坪耐火厂", "昌鑫生物", "神子山口", "南上庄东","南上庄村", "阳煤氯碱", "龙川发电厂", "西郊车站", "西郊牌楼", "东白岸口", "加液站", "招财鱼工厂", "北暫石桥", "鑫阳检车线", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "三岔口", "友爱医院", "钢材市场", "西城客运站" ],
+                fare: "1-6元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "628路",
+                system: "平定",
+                start: "平阳湖景区",
+                end: "西城客运站",
+                stops: [ "平阳湖景区", "水上人家", "娘子关村委会", "康馨小区", "娘子关瀑布", "娘子关关口", "河北村口", "绿苑小区", "河滩", "坡底口", "城西村广场", "城西停车场", "城西村口", "东塔堰", "西塔堰", "程家口", "东武口", "西武口", "大社", "下盘石", "木密寺", "平沟", "葫芦破", "采摘园", "白虎嘴", "上盘石", "新盘石村口", "桃河湾水世界", "岩会村", "半沟口", "移穰村", "南阁", "连庄", "连庄停车场", "连庄", "岩会中学", "汇玉龙公司", "龙庄村小广场", "龙庄村口", "搅拌站", "乱流洗煤厂", "乱流加油站", "小会口", "南坪学校", "南坪村", "南耐火厂", "昌鑫物资", "神子山", "南上庄", "阳泉东", "龙川发电", "西郊", "西郊牌楼", "东白岸", "加液站", "招财鱼", "北石厂", "鑫阳桥", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站"],
+                fare: "1-9元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "631路",
+                system: "平定",
+                start: "冶西村",
+                end: "西城客运站",
+                stops: [ "冶西村", "冶西村口", "京宇磁材", "小河滩小区", "三聂家庄", "恒汇液桥", "五矿桥头", "新贵石沟", "贵石沟车站", "贵石沟村委会", "阳泉师专庙沟校区", "西外环口", "庙沟村委会", "新乡小区", "孙家沟村委会", "伍号院", "东关花园", "司法局", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "三岔口", "友爱医院", "钢材市场", "西城客运站" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "632路",
+                system: "平定",
+                start: "刘家庄村",
+                end: "东升",
+                stops: ["赵家庄","刘家庄村","刘家庄","苏峪村","苏峪口", "苏村", "五矿商场", "复兴实验中学", "阳煤二院", "水磨湾", "梅竹花园", "五矿桥头", "贵石沟", "贵石沟村委会", "阳泉师专庙沟校区","西外环口","平定县交通局","杨家沟","冠山逸城","职业高中", "书香苑", "南苑人家", "康复医院","姜家沟", "南小区", "东关", "体育场", "平定二中", "大林山", "县工业联社", "再乐公司", "洗马堰", "政务中心（平定）", "金源国际", "太阳城","东升"],
+                fare: "1-2元",
+                card: "待核实",
+                note: "返程在苏峪口直接拐到赵家庄,去程从刘家庄村始发，不经过赵家庄"
+            },
+            { 
+                id: "665路",
+                system: "平定",
+                start: "东升",
+                end: "连庄村委会",
+                stops: [ "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "信访局", "三岔口", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "王垅口", "百度云计算", "开发区口", "氧化铝", "华泰伟业", "阳泉车管所", "齐家岩", "杨家庄", "小西庄口", "下白泉", "郊区看守所", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄口", "段家庄口", "小河北", "大麦峪", "大峪桥西", "水峪", "圪套", "巨城卫生院", "巨城派出所", "巨城镇政府", "巨城", "巨城河东", "龙门垴口", "万子足", "北庄头南","北庄头北","冯家峪口","岳家庄","红岭口","黄龙庄口","竹梨庄口","红富庄","岔口中学","岔口乡政府","岔口","岔口派出所"],
+                fare: "1-4元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "667路",
+                system: "平定",
+                start: "东升",
+                end: "连庄村委会",
+                stops: [ "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "信访局", "三岔口", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "王垅口", "百度云计算", "开发区口", "氧化铝", "华泰伟业", "阳泉车管所", "齐家岩", "杨家庄", "小西庄口", "下白泉", "郊区看守所", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄口", "段家庄口", "小河北", "大麦峪", "大峪桥西", "水峪", "圪套", "巨城卫生院", "巨城派出所", "巨城镇政府", "巨城", "东小麻村", "西小麻村", "连庄", "连庄村委会" ],
+                fare: "1-4元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "668路",
+                system: "平定",
+                start: "东升",
+                end: "平阳湖景区",
+                stops: [ "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "信访局", "三岔口", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "王垅口", "百度云计算", "开发区口", "氧化铝", "华泰伟业", "阳泉车管所", "齐家岩", "杨家庄", "小西庄口", "下白泉", "郊区看守所", "上白泉耐火厂", "白泉中学", "西梨庄口", "山头口", "东梁庄口", "段家庄口", "小河北", "大麦峪", "大峪桥西", "水峪", "圪套", "巨城卫生院", "巨城派出所", "巨城镇政府", "巨城", "会里", "赵家垴", "上董寨加油站", "上董寨", "下董寨桥头", "下董寨", "石桥村口", "收费站", "坡底村", "电厂口", "娘子关大桥", "磨河滩", "绿苑小区", "河北村口", "娘子关关城", "娘子关瀑布", "康馨小区", "娘子关村委会", "水上人家", "平阳湖景区" ],
+                fare: "1-8元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "679路",
+                system: "平定",
+                start: "朝阳堡",
+                end: "西城客运站",
+                stops: [ "朝阳堡", "东锁簧", "前锁簧", "前锁簧", "东锁簧", "马家店", "北庄", "北庄口", "北庄口", "西庄", "庄岸", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "信访局", "坐标城东", "总工会（平定）", "坐标城西", "富泽苑", "鹊山移民新区", "西城客运站" ],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "681路",
+                system: "平定",
+                start: "神峪",
+                end: "西城客运站",
+                stops: [ "神峪", "桃叶坡", "石洼", "土岭头", "南庙", "张庄车站", "张庄医院", "三岔路口", "官道沟桥", "宝玉饭店", "官道沟", "陈家庄坡底", "谷头口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "东风4S店", "马家锁簧", "北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "西关小学", "检察院", "公安局", "鹊山移民新区", "西城客运站" ],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "682路",
+                system: "平定",
+                start: "圣堂",
+                end: "西城客运站",
+                stops: [ "圣堂", "范掌", "左家", "南阳胜", "阳胜煤矿", "壹号食品公司", "阳胜中学", "西城", "莜面厂", "新城村", "新城口", "新村桥", "天元", "新村", "西格里", "宁艾桥", "宁艾", "胡沟口", "碳素桥", "官道沟桥", "宝玉饭店", "官道沟", "陈家庄坡底", "谷头口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "前锁簧新区", "东风4S店", "马家锁簧", "北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站"],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "683路",
+                system: "平定",
+                start: "南后峪村",
+                end: "西城客运站",
+                stops: [ "南后峪村", "南后峪村口", "裕泰煤矿", "三坑", "上马郡头村口", "上马郡头", "齐家口", "下马郡头桥", "下马郡头", "春明激光", "宁艾桥", "宁艾", "胡家沟", "碳素桥", "官道沟桥", "宝玉饭店", "官道沟", "陈家庄坡底", "谷头口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "前锁簧新区", "东风4S店", "马家锁簧","北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站" ],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "685路",
+                system: "平定",
+                start: "西白岸",
+                end: "西城客运站",
+                stops: [ "西白岸", "教练场", "刺里垴", "西白岸三岔口", "杨树垴", "滑雪场口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站" ],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "686路",
+                system: "平定",
+                start: "麻巷",
+                end: "西城客运站",
+                stops: [ "麻巷", "立壁学校", "立壁桥", "栗壁村口", "西峪村口", "陈家庄村口", "马坊村口", "官道沟桥", "宝玉饭店", "官道沟", "陈家庄坡底", "谷头口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "东风4S店", "马家锁簧", "北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "西关小学", "检察院", "公安局", "鹊山移民新区", "西城客运站" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "687路",
+                system: "平定",
+                start: "下马坊",
+                end: "西城客运站",
+                stops: ["下马坊", "上马坊", "马坊村口", "官道沟桥", "宝玉饭店", "官道沟", "陈家庄坡底", "谷头口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "东风4S店", "马家锁簧", "北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "西关小学", "检察院", "公安局", "鹊山移民新区", "西城客运站" ],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "688路",
+                system: "平定",
+                start: "北后峪",
+                end: "西城客运站",
+                stops: [ "北后峪", "北后峪小卖铺", "北阳胜", "北阳胜牌楼", "夏庄村西", "夏庄村委会", "夏庄学校", "白家掌口", "汇能煤矿", "金溪洗煤厂", "新城牌楼", "新城桥", "新村桥", "天元", "新村", "西格里", "宁艾桥", "宁艾", "胡沟口", "碳素桥", "官道沟桥", "宝玉饭店", "官道沟", "陈家庄坡底", "谷头口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "前锁簧新区", "东风4S店", "马家锁簧", "北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站" ],
+                fare: "1-4元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "689路",
+                system: "平定",
+                start: "泉水头",
+                end: "西城客运站",
+                stops: [ "泉水头", "庙上", "西阁", "谷头村口", "里梨林头车站", "前梨林头口", "锁簧中学", "东锁簧", "前锁簧", "前锁簧新区", "东风4S店", "马家锁簧", "北庄口", "西白岸口", "庄窝", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站" ],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "691路",
+                system: "平定",
+                start: "旧关",
+                end: "西城客运站",
+                stops: [ "旧关", "旧关高速口", "甘桃驿", "甘桃驿村口", "新关", "固关景区", "槐树铺东", "槐树铺", "王口", "五里铺", "固驿铺加油站", "固驿铺", "张家岭村口", "张家岭矾石厂", "柏木井", "柏木井农家饭店", "袁家峪村", "柏井一村", "兽医站", "柏井", "柏井派出所", "柏井加油站", "柏井灰厂", "桥头加水站", "桥头新桥", "桥头中桥", "桥头村口", "小桥铺东桥", "小桥铺车站", "小桥铺牌楼", "渠峪村口", "石门口乡政府", "石门口车站", "服务区", "西郊新楼口", "西郊车站", "西郊牌楼", "东白岸口", "加液站", "招财鱼工厂", "北暫石桥", "鑫阳检车线", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站"],
+                fare: "1-4元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "693路",
+                system: "平定",
+                start: "大石门",
+                end: "西城客运站",
+                stops: [ "大石门", "东郊", "东郊村口", "灰厂", "小口头车站", "石门口车站", "服务区", "西郊新楼口", "西郊车站", "西郊牌楼", "东白岸口", "加液站", "招财鱼工厂", "北暫石桥", "鑫阳检车线", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "公交票卡中心", "西城客运站"],
+                fare: "1-3元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "696路",
+                system: "平定",
+                start: "东白岸",
+                end: "西城客运站",
+                stops: [ "东白岸", "东白岸口", "加液站", "招财鱼工厂", "北暫石桥", "鑫阳检车线", "东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "县工业联社", "平定二中", "体育场", "东关", "森宇商厦", "金地商厦", "教育局", "新安", "平定一中", "怡德园", "富泽苑", "鹊山移民新区", "西城客运站" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "702路",
+                system: "平定",
+                start: "银鹰金店",
+                end: "药林寺",
+                stops: ["银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场", "居然之家", "铁路桥南","化工厂家属区","阳泉四中", "体育馆", "山西银行", "义井桥", "义井公交车场", "南边堰","阳泉一中", "省运桥","河下综合市场", "水木清华苑","祥悦酒店","阳泉军分区", "桃花源", "岭秀华庭","交警队","冠亚建材市场", "天宇汽修","消防队","太阳城", "东升", "庄窝", "西白岸口", "北庄口", "马家锁簧", "东风4S店", "前锁簧","东锁簧","锁簧中学","前梨林头口", "里梨林头车站","谷头口","陈家庄坡底", "官道村村口","宝玉饭店","官道沟桥","胡沟口", "宁艾村","宁艾桥","下马郡头","上马郡头","三坑","裕泰公司","南后峪村","药林寺" ],
+                fare: "1-5元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "703路",
+                system: "平定",
+                start: "银鹰金店",
+                end: "大井",
+                stops: [ "公路局", "银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场", "居然之家", "铁路桥南","化工厂家属区", "燕竹花园","嘉年华东", "南庄村口","农产品批发市场","胡家庄口", "河头", "杨家沟","检车站","西外环", "阳泉师专庙沟校区","贵石沟村委会","贵石沟", "新桥", "五矿桥头", "恒汇液压", "聂家庄", "三处", "小河滩小区", "京宇磁材","大井"],
+                fare: "1元",
+                card: "待核实",
+                note: "这个车始发站好像是公路局，但是公交车上写的始发站是银鹰金店，不知道是为什么原因，这里就以公交车为准。"
+            },
+            {
+                id: "708路",
+                system: "平定",
+                start: "东升",
+                end: "市一院新院区",
+                stops: ["东升", "太阳城", "金源国际", "健康大厦", "洗马堰", "再乐公司", "东方驾校", "平定二中", "大林山", "平定体育场", "东关", "森宇商厦", "金地商厦", "评梅广场", "县医院", "坐标城", "友爱医院", "市司法局", "河下综合市场", "省运桥", "阳泉一中", "南边堰", "义井公交车场", "义井桥", "山西银行", "体育馆", "阳泉四中", "城区政府", "化工厂", "市一院", "市政府", "美隆国际","光大银行", "青年路口", "平坦垴", "居馨花园", "泉中花园", "健康体检中心", "玉泉中学东", "万达广场西","市一院新院区","市规划展览馆"],
+                fare: "1元",
+                card: "待核实",
+                note: "本线路在2026年8月5日改线，终点改为市一院新院区"
+            },
+            // ===== 盂县公交 =====
+            { 
+                id: "801路 ",
+                system: "盂县",
+                start: "盂县汽车站",
+                end: "阳泉北站",
+                stops: [ "盂县汽车站", "房地产公司", "东兴大酒店", "集贸市场（盂县）", "粮食局（盂县）","林业局（盂县）","煤运公司", "移动公司", "新安小区（盂县）", "佳泰花园", "县医院（盂县）", "税务局（盂县）", "三针坪", "交通局（盂县）", "邮政局（盂县）", "金龙西街", "新广场", "电业局（盂县）", "金龙佳苑", "龙泉苑", "北关小区", "北关小区1号楼", "锦龙花园", "盂县第三实验小学", "盂县二中", "水泉", "龙胜苑", "盂县一中", "西崖底", "盂县中医院", "东兴二手车市场", "大吉", "西吉西", "政务中心", "站前街", "阳泉北站" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "803路 ",
+                system: "盂县",
+                start: "盂县汽车站",
+                end: "西小坪",
+                stops: [ "盂县汽车站", "富春园", "党校", "东兴大酒店", "集贸市场（盂县）", "粮食局（盂县）", "煤运公司", "凯通购物广场", "县联社（盂县）", "电业局（盂县）", "新广场", "检察院（盂县）", "交通局", "盂县四中", "小坪梁村", "东小坪", "西小坪" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "805路 ",
+                system: "盂县",
+                start: "石店",
+                end: "三针坪",
+                stops: [ "石店", "孙家庄镇","孙家庄西", "西崖底", "福馨苑", "盂县一中", "中国石化", "龙胜苑", "水泉", "水泉公园", "金龙凯旋城", "东园", "人民银行", "东鑫大酒店", "集贸市场（盂县）", "粮食局（盂县）", "林业局（盂县）", "煤运公司", "凯通超市", "佳苑花园", "县医院（盂县）", "税务局（盂县）", "三针坪" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "806路 ",
+                system: "盂县",
+                start: "盂县汽车站",
+                end: "纸匠村",
+                stops: [ "盂县汽车站", "富春园", "党校", "东兴大酒店", "集贸市场（盂县）", "粮食局（盂县）", "林业局（盂县）", "煤运公司", "香苑小区", "盂县第二实验小学", "东宋东", "东宋住宅北区", "东宋", "富雅苑", "香泽苑小区", "西宋", "香河村口", "下曹村东", "下曹", "纸匠村东", "纸匠村" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "808路",
+                system: "盂县",
+                start: "贺村",
+                end: "县文化中心",
+                stops: [ "贺村", "刘村", "姜村", "秦村", "盂县汽车站", "党校", "集贸市场（盂县）", "粮食局（盂县）", "林业局（盂县）", "凯通广场", "县医院（盂县）", "君悦小区", "三针坪", "交通局（盂县）", "检察院（盂县）", "电业局（盂县）", "交警队（盂县）", "龙泉苑", "北关小区", "锦龙花园", "盂县第三实验小学", "水泉村", "盂县一中", "县文化中心（盂县)" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "809路",
+                system: "盂县",
+                start: "西白",
+                end: "东坪",
+                stops: [ "西白", "东白水", "南白水", "南白水南", "交通局（盂县）", "公安局（盂县）", "检察院（盂县）", "新广场（盂县）", "财政局（盂县）", "法院（盂县）", "电业局（盂县）", "县联社（盂县）", "凯通时尚广场（盂县）", "煤运公司", "林业局（盂县）", "粮食局（盂县）", "集贸市场（盂县）", "东兴大酒店", "党校", "房管所", "教育局（盂县）", "种子公司", "秀水东街东口", "县人民武装部（盂县）", "东坪村西", "东坪村委会", "东坪村东", "东坪" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "810路",
+                system: "盂县",
+                start: "盂县汽车站",
+                end: "牛村",
+                stops: [ "盂县汽车站", "富春园", "党校", "东兴大酒店", "集贸市场（盂县）", "粮食局（盂县）", "林业局（盂县）", "煤运公司", "凯通超市", "县医院（盂县）", "税务局（盂县）", "佳苑小区", "公安局（盂县）", "检察院（盂县）", "新广场", "电业局（盂县）", "交警队（盂县）", "龙泉苑", "龙泉苑东区", "北美小区", "锦隆花园", "招呼站", "盂县第三实验小学", "盂县二中", "水泉", "加油站", "盂县一中", "学府公园", "福馨苑", "西崖底", "郭家坪", "奕丰生态园", "元吉", "牛村东", "牛村" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "811路",
+                system: "盂县",
+                start: "大横沟",
+                end: "报国寺",
+                stops: [ "大横沟", "菜市场（盂县）", "三针坪", "交通局（盂县）", "邮政局（盂县）", "金龙西街", "新广场", "电业局（盂县）", "金龙佳苑", "龙泉苑", "北关小区", "北关小区1号楼", "锦龙花园", "盂县第三实验小学", "盂县二中", "水泉", "龙胜苑", "盂县一中", "西崖底", "盂县中医院", "东兴二手车市场", "大吉", "西吉西", "政务中心", "站前街", "阳泉北站", "报国寺" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "816路",
+                system: "盂县",
+                start: "泥河村",
+                end: "政务中心",
+                stops: [ "泥河村", "泥河村南", "泥河村卫生院", "泥河村广场", "泥河村西口", "泥河村委会", "上南庄牌楼", "下南庄南", "下南庄村北", "南庄沟口", "小横沟", "富和苑", "幸福家园", "南关外贸小区", "和平路口", "粮食局（盂县）", "移动公司", "佳泰花园", "县医院（盂县）", "君悦花园", "三针坪", "邮政局（盂县）", "新广场", "电业局（盂县）", "龙泉苑", "北城馨居", "东寨村口", "聚景园", "高城首府", "政务中心" ],
+                fare: "1-2元",
+                card: "待核实",
+                note: ""
+            },
+			// ===== 华阳客运 =====
+            {
+                id: "滨河-一矿线",
+                system: "华阳",
+                start: "滨河公交车场",
+                end: "一矿",
+                stops: ["新农贸","滨河公交车场","保晋文化园","沃尔玛","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿"],
+                fare: "1元",
+                card: "待核实",
+                note: "客流很大的一条线，并且为了方便夜班矿工出行，该线路24小时不间断运行"
+            },
+            { 
+                id: "一矿-大井线",
+                system: "华阳",
+                start: "一矿",
+                end: "大井",
+                stops: [ "一矿", "里沙坪", "前庄", "一矿医院", "沙坪", "三矿广场", "三矿", "赛鱼", "十五中", "矿区法院", "馨泽苑", "虎尾沟", "世纪明珠", "水泉沟", "四矿口", "机电工区", "俱乐部", "河神庙", "马家坪", "平潭街", "华阳集团", "文化宫","公路局", "银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场", "居然之家", "铁路桥南","化工厂家属区", "燕竹花园","嘉年华东", "南庄村口","农产品批发市场","胡家庄口", "河头", "杨家沟","检车站","西外环", "阳泉师专庙沟校区","贵石沟村委会","贵石沟", "新桥", "五矿桥头", "恒汇液压", "聂家庄", "三处", "小河滩小区", "京宇磁材","大井"],
+                fare: "1元",
+                card: "待核实",
+                note: "该线路走向根据实地观察推断，具体站点待核实，仅供参考"
+            },
+            { 
+                id: "四矿-新景线",
+                system: "华阳",
+                start: "四矿",
+                end: "新景",
+                stops: ["四矿口", "水泉沟", "新泽苑", "三矿医院", "太行国际新城", "阳光新区", "龙泉驾校", "银源山庄", "马家坡口", "平潭镇政府", "圣泉寺", "芦湖新村", "桑掌桥", "新景矿"],
+                fare: "1元",
+                card: "待核实",
+                note: "该线路走向根据实地观察推断，具体站点待核实，仅供参考。"
+            },
+            { 
+                id: "阳煤客运一线",
+                system: "华阳",
+                start: "滨河",
+                end: "运输部",
+                stops: [ "新农贸","滨河公交车场", "保晋文化园","沃尔玛","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "三矿医院", "太行国际新城","阳光小区","龙泉驾校","运输部"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运二线",
+                system: "华阳",
+                start: "滨河",
+                end: "四矿医院",
+                stops: ["新农贸","滨河公交车场", "保晋文化园","沃尔玛","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "十六中", "四矿小区", "四矿广场", "四矿医院"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运三线",
+                system: "华阳",
+                start: "滨河",
+                end: "四矿广场",
+                stops: ["新农贸","滨河公交车场", "保晋文化园","沃尔玛","银鹰金店","公路局", "文化宫", "华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "十六中", "四矿小区", "四矿广场"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运五线",
+                system: "华阳",
+                start: "巨兴小区",
+                end: "运输部",
+                stops: [ "巨兴小区", "龙凤沟口", "艺佳佳幼儿园", "万熙嘉园", "洪城河","华阳集团", "平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "三矿医院", "太行国际新城","阳光小区","龙泉驾校","运输部"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运六线",
+                system: "华阳",
+                start: "巨兴小区",
+                end: "一矿",
+                stops: ["巨兴小区", "龙凤沟口", "艺佳佳幼儿园", "万熙嘉园", "洪城河","华阳集团","平潭街", "马家坪", "河神庙", "俱乐部", "机电工区", "四矿口", "水泉沟", "世纪明珠", "虎尾沟", "馨泽苑", "矿区法院", "十五中", "赛鱼", "三矿", "三矿广场", "沙坪", "一矿医院", "前庄", "里沙坪", "一矿"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运七线",
+                system: "华阳",
+                start: "四矿广场",
+                end: "运输部",
+                stops: [ "四矿广场", "四矿小区", "十六中", "工商银行", "四矿口", "水泉沟", "明珠大厦","虎尾沟", "救护队","矿区法院", "三矿医院","太行国际新城","阳光小区", "龙泉驾校", "运输部"],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运九线",
+                system: "华阳",
+                start: "一矿",
+                end: "运输部",
+                stops: [ "一矿", "沙沟", "红岭湾", "里沙坪", "前庄", "沙坪", "三矿广场","三矿", "赛鱼","三矿医院", "太行国际新城","阳光新区","龙泉驾校", "运输部" ],
+                fare: "1元",
+                card: "待核实",
+                note: ""
+            },
+            { 
+                id: "阳煤客运十线",
+                system: "华阳",
+                start: "四矿广场",
+                end: "一矿",
+                stops: ["一矿", "里沙坪", "前庄", "一矿医院", "沙坪", "三矿广场", "三矿", "赛鱼", "十五中", "矿区法院", "馨泽苑", "虎尾沟", "世纪明珠", "水泉沟", "工商银行", "四矿中学", "四矿小区", "四矿广场"],
+                fare: "1元",
+                card: "普通卡有效，老年卡有效",
+                note: ""
+            },
+            { 
+                id: "阳煤客运五矿线",
+                system: "华阳",
+                start: "一矿/四矿/赛鱼",
+                end: "大井",
+                stops: [ "一矿", "里沙坪", "前庄", "一矿医院", "沙坪", "三矿广场", "三矿", "赛鱼", "十五中", "矿区法院", "馨泽苑", "虎尾沟", "世纪明珠", "水泉沟","四矿口", "机电工区", "俱乐部", "河神庙", "马家坪", "平潭街", "华阳集团", "文化宫",,"公路局", "银鹰金店", "沃尔玛", "保晋文化园", "滨河公交车场", "居然之家", "铁路桥南","化工厂家属区", "燕竹花园","嘉年华东", "南庄村口","农产品批发市场","胡家庄口", "河头", "杨家沟","检车站","西外环", "阳泉师专庙沟校区","贵石沟村委会","贵石沟", "新桥", "五矿桥头", "恒汇液压", "聂家庄", "三处", "小河滩小区", "京宇磁材","大井"],
+                fare: "1-3元",
+                card: "待核实",
+                note: "这条线路不是很固定，我搜集到了一个时刻表（具体的以公交公司发布的为准）：大井发出：1:20（至四矿）2:00（至一矿）4:55（绕新派至一矿）6:20（绕新派至一矿）7:00（至一矿）7:30（至赛鱼）8:00（至四矿）8:45（至赛鱼）9:30（至赛鱼）11:30（至四矿）15:30（至赛鱼）16:35（至四矿）17:20（至赛鱼）21:30（至赛鱼）-----                                                        矿区发出（均到大井）：5:05（一矿发）5:10（四矿发）5:15（赛鱼发）6:30（一矿，阳光新区发）6:35（四矿发）8:00（一矿发）9:15（一矿发）13:00（一矿，四矿发）14:10（一矿发）17:15（一矿发）18:20（一矿发）21:00（一矿，赛鱼，四矿发）"
+            },
+            // ===== 停运线路档案 =====
+            { 
+                id: "3路",
+                system: "停运",
+                start: "滨河公交车场",
+                end: "桃坡",
+                stops: [],
+                fare: "1元",
+                card: "",
+                note: "阳泉公交早期的一条线路，现今已被301路取代"
+            },
+            { 
+                id: "21路下",
+                system: "停运",
+                start: "火车站",
+                end: "火车站",
+                stops: [],
+                fare: "1元",
+                card: "",
+                note: "21路原分上下两线，之后两线合并为21路，走原21路上的路线"
+            },
+            { 
+                id: "403路",
+                system: "停运",
+                start: "火车站",
+                end: "融尚家居",
+                stops: [],
+                fare: "1元",
+                card: "",
+                note: "该线路在融尚家居站牌上有显示，但目前高德地图中已查不到运营信息，最近的资料在2025年9月，之后该线路停运。"
+            },
+            { 
+                id: "503路",
+                system: "停运",
+                start: "滨河公交车场",
+                end: "上章召",
+                stops: [],
+                fare: "1-3元",
+                card: "",
+                note: "因为和9路线路重合率过高，该线路停运。"
+            },
+            { 
+                id: "621路",
+                system: "停运",
+                start: "水木清华苑",
+                end: "水木清华苑",
+                stops: [],
+                fare: "1元",
+                card: "",
+                note: "该线路在平定东关站牌上有显示，但目前高德地图及公开资料中已查不到运营信息，可能已停运或临时调整"
+            },
+            { 
+                id: "DK5路",
+                system: "停运",
+                start: "义井桥",
+                end: "刘备山",
+                stops: [],
+                fare: "2元",
+                card: "",
+                note: "原先开行的DK线路之一，现今只保留了DK1路，其他DK线路全部停运。"
+            },
+            { 
+                id: "DK108路",
+                system: "停运",
+                start: "东城水岸",
+                end: "阳光新区",
+                stops: [],
+                fare: "2元",
+                card: "",
+                note: "原先开行的DK线路之一，现今只保留了DK1路，其他DK线路全部停运，该线路仅开行两个月就被DK104路支取代。"
+            },
+            { 
+                id: "DK104路支",
+                system: "停运",
+                start: "万通市场",
+                end: "四矿广场",
+                stops: [],
+                fare: "1元",
+                card: "",
+                note: "原先开行的DK线路之一，现今只保留了DK1路，其他DK线路全部停运。"
+            },
+            { 
+                id: "娘子关旅游专线",
+                system: "停运",
+                start: "一矿",
+                end: "平阳湖（娘子关）景区停车场",
+                stops: [],
+                fare: "10元",
+                card: "",
+                note: "原先开通的一条旅游直达线路。"
+            },
+		];
+        // ============================================================
+
+        // ===== 系统颜色映射 =====
+        const systemColorMap = {
+            '城区': '#2b7be4',
+            '平定': '#dc3545',
+            '盂县': '#ffc107',
+            '华阳': '#6f42c1'
+        };
+
+        function systemColor(sys) {
+            return systemColorMap[sys] || '#999';
+        }
+
+        // ===== 获取站点所属系统列表（用于显示圆点） =====
+        function getSystemsForStop(stopName) {
+            if (!stopName || stopName.trim() === '') return [];
+            const systems = new Set();
+            busData.forEach(b => {
+                if (b.stops && b.stops.includes(stopName)) {
+                    systems.add(b.system);
+                }
+            });
+            return Array.from(systems);
+        }
+
+        // ===== 生成站点圆点HTML =====
+        function getStopDots(stopName) {
+            if (!stopName || stopName.trim() === '') return '';
+            const systems = getSystemsForStop(stopName);
+            if (systems.length === 0) return '';
+            return systems.map(sys => 
+                `<span class="stop-dot" style="background:${systemColor(sys)};" title="${sys}"></span>`
+            ).join('');
+        }
+
+        // ===== 获取方向 =====
+        function getDirection(b, reversed) {
+            if (reversed) {
+                return { start: b.end, end: b.start, stops: [...b.stops].reverse() };
+            } else {
+                return { start: b.start, end: b.end, stops: b.stops };
+            }
+        }
+
+        // ===== 换乘规划核心逻辑（支持系统筛选） =====
+        function findAllRoutes(start, end, maxTransfers, systemFilter) {
+            if (start === end) {
+                return [{ type: 'same', message: '起点和终点相同，无需换乘。' }];
+            }
+
+            // 根据系统筛选数据
+            let data = busData;
+            if (systemFilter && systemFilter !== '全部') {
+                data = busData.filter(b => b.system === systemFilter);
+            }
+
+            const results = [];
+
+            const directLines = data.filter(b => 
+                b.stops.includes(start) && b.stops.includes(end)
+            );
+            if (directLines.length > 0) {
+                results.push({ type: 'direct', lines: directLines, start: start, end: end });
+            }
+
+            const queue = [];
+            const visited = new Set();
+            
+            const startLines = data.filter(b => b.stops.includes(start));
+            for (const line of startLines) {
+                const key = line.id + '|' + line.system;
+                if (!visited.has(key)) {
+                    visited.add(key);
+                    queue.push({
+                        line: line,
+                        transferStops: [],
+                        path: [line]
+                    });
+                }
+            }
+
+            while (queue.length > 0 && results.length < 5) {
+                const current = queue.shift();
+                const currentLine = current.line;
+                const currentPath = current.path;
+
+                if (currentLine.stops.includes(end)) {
+                    results.push({
+                        type: 'multiTransfer',
+                        path: currentPath,
+                        transferStops: current.transferStops,
+                        start: start,
+                        end: end
+                    });
+                    continue;
+                }
+
+                if (currentPath.length > maxTransfers) continue;
+
+                for (const stop of currentLine.stops) {
+                    const nextLines = data.filter(b => 
+                        b.stops.includes(stop) && 
+                        !(b.id === currentLine.id && b.system === currentLine.system)
+                    );
+                    for (const nextLine of nextLines) {
+                        const key = nextLine.id + '|' + nextLine.system;
+                        if (!visited.has(key)) {
+                            if (currentPath.some(p => p.id === nextLine.id && p.system === nextLine.system)) {
+                                continue;
+                            }
+                            visited.add(key);
+                            const newTransferStops = [...current.transferStops, stop];
+                            queue.push({
+                                line: nextLine,
+                                transferStops: newTransferStops,
+                                path: [...currentPath, nextLine]
+                            });
+                        }
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        // ===== 计算去重站点总数 =====
+        function calcTotalStops() {
+            const stopSet = new Set();
+            busData.forEach(b => {
+                b.stops.forEach(s => {
+                    if (s && s.trim() !== '') {
+                        stopSet.add(s);
+                    }
+                });
+            });
+            return stopSet.size;
+        }
+
+        // ===== 当前状态 =====
+        let currentSystem = '全部';
+        let currentSearch = '';
+        let searchKeywords = [];
+
+        function stopsMatchAll(stops, keywords) {
+            if (keywords.length === 0) return true;
+            return keywords.every(kw => stops.some(s => s.includes(kw)));
+        }
+
+        // ===== 渲染主页（站点分组模式） =====
+        function render() {
+            const list = document.getElementById('busList');
+            
+            // 如果没有搜索关键词，显示所有线路
+            if (!currentSearch || searchKeywords.length === 0) {
+                const filtered = busData.filter(b => {
+                    const matchSystem = currentSystem === '全部' || b.system === currentSystem;
+                    return matchSystem;
+                });
+                document.getElementById('totalCount').textContent = busData.length;
+                document.getElementById('lineCount').textContent = filtered.length;
+                document.getElementById('totalStops').textContent = calcTotalStops();
+
+                if (filtered.length === 0) {
+                    list.innerHTML = '<div class="empty">没有匹配的线路</div>';
+                    return;
+                }
+
+                list.innerHTML = filtered.map((b) => {
+    const currentDir = getDirection(b, false);
+    return `
+        <div class="bus-card" data-id="${b.id}">
+            <div class="left">
+                <div class="top-row">
+                    <span class="id">${b.id}</span>
+                    <span class="system-tag" style="background:${systemColor(b.system)};">${b.system}</span>
+                </div>
+                <div class="route">${currentDir.start} → ${currentDir.end}</div>
+            </div>
+        </div>
+    `;
+}).join('');
+
+                document.querySelectorAll('.bus-card').forEach(el => {
+                    el.addEventListener('click', function(e) {
+                        if (e.target.closest('.swap-btn')) return;
+                        const id = this.dataset.id;
+                        openModal(id, false);
+                    });
+                });
+
+                document.querySelectorAll('.swap-btn').forEach(el => {
+                    el.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const id = this.dataset.id;
+                        if (!window._dirState) window._dirState = {};
+                        window._dirState[id] = !window._dirState[id];
+                        const reversed = window._dirState[id] || false;
+                        const dir = getDirection(busData.find(b => b.id === id), reversed);
+                        const card = this.closest('.bus-card');
+                        const routeEl = card.querySelector('.route');
+                        routeEl.textContent = `${dir.start} → ${dir.end}`;
+                    });
+                });
+                return;
+            }
+
+            // ===== 先检查是否匹配线路名（线路号搜索） =====
+            const matchedLines = busData.filter(b => b.id.includes(currentSearch));
+            
+            // 如果搜索词匹配到线路号，直接显示匹配的线路卡片
+            if (matchedLines.length > 0) {
+                // 按系统筛选
+                const finalLines = currentSystem === '全部' 
+                    ? matchedLines 
+                    : matchedLines.filter(b => b.system === currentSystem);
+                
+                if (finalLines.length === 0) {
+                    list.innerHTML = '<div class="empty">没有匹配的线路</div>';
+                    return;
+                }
+                
+                document.getElementById('totalCount').textContent = busData.length;
+                document.getElementById('lineCount').textContent = finalLines.length;
+                document.getElementById('totalStops').textContent = calcTotalStops();
+                
+                list.innerHTML = finalLines.map((b) => {
+                    const currentDir = getDirection(b, false);
+                    return `
+                        <div class="bus-card" data-id="${b.id}">
+                            <div class="left">
+                                <div class="top-row">
+                                    <span class="id">${b.id}</span>
+                                    <span class="system-tag" style="background:${systemColor(b.system)};">${b.system}</span>
+                                </div>
+                                <div class="route">${currentDir.start} → ${currentDir.end}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.querySelectorAll('.bus-card').forEach(el => {
+                    el.addEventListener('click', function(e) {
+                        const id = this.dataset.id;
+                        openModal(id, false);
+                    });
+                });
+                return;
+            }
+            
+            // ===== 按站点分组显示（站点名搜索） =====
+            // ===== 有搜索关键词：按站点分组显示 =====
+            const matchedStops = new Set();
+            busData.forEach(b => {
+                b.stops.forEach(s => {
+                    if (searchKeywords.some(kw => s.includes(kw))) {
+                        matchedStops.add(s);
+                    }
+                });
+            });
+
+            const stopGroups = [];
+            matchedStops.forEach(stop => {
+                const lines = busData.filter(b => b.stops.includes(stop));
+                const filteredLines = currentSystem === '全部' 
+                    ? lines 
+                    : lines.filter(b => b.system === currentSystem);
+                if (filteredLines.length > 0) {
+                    stopGroups.push({
+                        stop: stop,
+                        lines: filteredLines,
+                        systems: getSystemsForStop(stop)
+                    });
+                }
+            });
+
+            stopGroups.sort((a, b) => a.stop.localeCompare(b.stop));
+
+            document.getElementById('totalCount').textContent = busData.length;
+            document.getElementById('lineCount').textContent = stopGroups.reduce((sum, g) => sum + g.lines.length, 0);
+            document.getElementById('totalStops').textContent = calcTotalStops();
+
+            if (stopGroups.length === 0) {
+                list.innerHTML = '<div class="empty">没有匹配的站点</div>';
+                return;
+            }
+
+            let html = '';
+            stopGroups.forEach((group, idx) => {
+                const dots = group.systems.map(sys => 
+                    `<span class="stop-dot" style="background:${systemColor(sys)};" title="${sys}"></span>`
+                ).join('');
+                const groupId = 'group-' + idx;
+                html += `
+                    <div class="search-group">
+                        <div class="search-group-header" data-group="${groupId}">
+                            <span>📍 ${group.stop}</span>
+                            ${dots}
+                            <span class="arrow" id="arrow-${groupId}">▼</span>
+                        </div>
+                        <div class="search-group-body" id="body-${groupId}">
+                            ${group.lines.map(b => `
+                                <div class="mini-card" data-id="${b.id}">
+                                    <span class="mini-id">${b.id}</span>
+                                    <span class="mini-route">${b.start} → ${b.end}</span>
+                                    <span class="mini-tag" style="background:${systemColor(b.system)};">${b.system}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            list.innerHTML = html;
+
+            document.querySelectorAll('.search-group-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    const groupId = this.dataset.group;
+                    const body = document.getElementById('body-' + groupId);
+                    const arrow = document.getElementById('arrow-' + groupId);
+                    body.classList.toggle('open');
+                    arrow.classList.toggle('open');
+                });
+            });
+
+            document.querySelectorAll('.mini-card').forEach(el => {
+                el.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    openModal(id, false);
+                });
+            });
+        }
+
+        // ===== 模态框 =====
+        let currentModalId = null;
+        let currentModalReversed = false;
+
+        function openModal(id, reversed) {
+            const b = busData.find(item => item.id === id);
+            if (!b) return;
+            currentModalId = id;
+            currentModalReversed = reversed || false;
+            updateModal();
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+                function updateModal() {
+            const b = busData.find(item => item.id === currentModalId);
+            if (!b) return;
+            const dir = getDirection(b, currentModalReversed);
+
+            document.getElementById('modalTitle').textContent = b.id;
+            document.getElementById('modalSystem').textContent = b.system;
+            document.getElementById('modalStartEnd').innerHTML =
+                `${dir.start} → ${dir.end} <span style="font-size:0.8em;color:#999;">（点击换向）</span>`;
+
+            const container = document.getElementById('modalStops');
+            // 纵向站点列表 + 竖线连接符
+            let html = '<div style="display:flex;flex-direction:column;align-items:center;padding:8px 0;">';
+            dir.stops.forEach((s, index) => {
+                const dots = getStopDots(s);
+                html += `
+                    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+                        <span style="font-size:1.05em;font-weight:500;">${s}</span>
+                        <span style="display:flex;gap:4px;align-items:center;">${dots}</span>
+                    </div>
+                `;
+                if (index < dir.stops.length - 1) {
+                    html += `
+                        <div style="display:flex;align-items:center;padding-left:4px;height:16px;color:#ccc;font-size:0.9em;">
+                            ↓
+                        </div>
+                    `;
+                }
+            });
+            html += '</div>';
+            container.innerHTML = html;
+
+            document.getElementById('modalFare').textContent = b.fare || '待补充';
+            document.getElementById('modalCard').textContent = b.card || '待补充';
+            document.getElementById('modalNote').textContent = b.note || '暂无';
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        // ===== 换乘规划UI（带系统筛选） =====
+        let allRouteResults = [];
+        let currentResultIndex = 0;
+
+        function formatRouteResult(result) {
+            if (result.type === 'same') {
+                return `✅ ${result.message}`;
+            } else if (result.type === 'direct') {
+                const sampleLine = result.lines[0];
+                const start = result.start;
+                const end = result.end;
+                const startIdx = sampleLine.stops.indexOf(start);
+                const endIdx = sampleLine.stops.indexOf(end);
+                const stopsCount = Math.abs(endIdx - startIdx);
+                const direction = (startIdx < endIdx) ? `开往 ${sampleLine.end} 方向` : `开往 ${sampleLine.start} 方向`;
+                const lines = result.lines.map(b => 
+                    `<span class="route-line" style="background:${systemColor(b.system)};">${b.id}</span>`
+                ).join('、');
+                return `✅ 直达线路：${lines}<br>乘坐 <strong>${sampleLine.id}</strong>（${direction}），从 <strong>${start}</strong> 出发，经过 <strong>${stopsCount}</strong> 站到达 <strong>${end}</strong>。`;
+            } else if (result.type === 'multiTransfer') {
+                const path = result.path;
+                const transferStops = result.transferStops;
+                const start = result.start;
+                const end = result.end;
+                let stepsHtml = '';
+                let currentStation = start;
+                let totalStops = 0;
+
+                for (let i = 0; i < path.length; i++) {
+                    const line = path[i];
+                    const color = systemColor(line.system);
+                    const isLast = (i === path.length - 1);
+                    const nextStation = isLast ? end : transferStops[i];
+                    const startIdx = line.stops.indexOf(currentStation);
+                    const endIdx = line.stops.indexOf(nextStation);
+                    const stopsCount = Math.abs(endIdx - startIdx);
+                    totalStops += stopsCount;
+
+                    const direction = (startIdx < endIdx) ? `开往 ${line.end} 方向` : `开往 ${line.start} 方向`;
+
+                    if (i === 0) {
+                        stepsHtml += `<span class="step">① 乘坐 <span class="route-line" style="background:${color};">${line.id}</span>（${direction}），从 <strong>${currentStation}</strong> 出发，经过 <strong>${stopsCount}</strong> 站到达 <strong class="highlight-stop">${nextStation}</strong> 下车；</span>`;
+                    } else if (isLast) {
+                        stepsHtml += `<span class="step">${i+1}️⃣ 换乘 <span class="route-line" style="background:${color};">${line.id}</span>（${direction}），从 <strong class="highlight-stop">${currentStation}</strong> 上车，经过 <strong>${stopsCount}</strong> 站到达 <strong>${end}</strong>。</span>`;
+                    } else {
+                        stepsHtml += `<span class="step">${i+1}️⃣ 换乘 <span class="route-line" style="background:${color};">${line.id}</span>（${direction}），从 <strong class="highlight-stop">${currentStation}</strong> 上车，经过 <strong>${stopsCount}</strong> 站到达 <strong class="highlight-stop">${nextStation}</strong> 下车；</span>`;
+                    }
+                    currentStation = nextStation;
+                }
+
+                const transferCount = path.length - 1;
+                return `✅ ${transferCount}次换乘方案（共 ${totalStops} 站）：<br>${stepsHtml}`;
+            }
+            return '';
+        }
+
+        function showTransferResult() {
+            const start = document.getElementById('transferStart').value.trim();
+            const end = document.getElementById('transferEnd').value.trim();
+            const systemFilter = document.getElementById('systemFilter').value;
+            const resultDiv = document.getElementById('transferResult');
+
+            if (!start || !end) {
+                resultDiv.innerHTML = '⚠️ 请输入起点和终点站名。';
+                resultDiv.className = 'transfer-result show';
+                return;
+            }
+
+            // 如果选择"全部"，显示警告
+            let warningHtml = '';
+            if (systemFilter === '全部') {
+                warningHtml = `<div class="system-warning">⚠️ 已选择「全部」系统，不同系统的同名站点可能不在同一位置，请确认换乘站的实际归属。</div>`;
+            }
+
+            allRouteResults = findAllRoutes(start, end, 3, systemFilter);
+            currentResultIndex = 0;
+
+            if (allRouteResults.length === 0) {
+                resultDiv.innerHTML = warningHtml + '❌ 未找到换乘方案。请尝试其他站点或确认站名是否正确。';
+                resultDiv.className = 'transfer-result show';
+                return;
+            }
+
+            let html = warningHtml + formatRouteResult(allRouteResults[0]);
+            if (allRouteResults.length > 1) {
+                html += `<br><button class="other-route-btn" id="nextRouteBtn">🔄 规划其他路线（${allRouteResults.length - 1}条可选）</button>`;
+            }
+            resultDiv.innerHTML = html;
+            resultDiv.className = 'transfer-result show';
+
+            document.getElementById('nextRouteBtn')?.addEventListener('click', function() {
+                currentResultIndex = (currentResultIndex + 1) % allRouteResults.length;
+                const result = allRouteResults[currentResultIndex];
+                let newHtml = warningHtml + formatRouteResult(result);
+                if (allRouteResults.length > 1) {
+                    newHtml += `<br><button class="other-route-btn" id="nextRouteBtn">🔄 规划其他路线（${allRouteResults.length - 1}条可选）</button>`;
+                }
+                resultDiv.innerHTML = newHtml;
+                document.getElementById('nextRouteBtn')?.addEventListener('click', arguments.callee);
+            });
+        }
+
+        // ===== 折叠面板切换 =====
+        document.getElementById('transferToggle').addEventListener('click', function() {
+            const body = document.getElementById('transferBody');
+            const arrow = document.getElementById('transferArrow');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                arrow.textContent = '▼';
+                document.getElementById('transferResult').className = 'transfer-result';
+                document.getElementById('transferResult').innerHTML = '';
+            } else {
+                body.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        });
+
+        // ===== 事件绑定 =====
+        document.getElementById('modalMeta').addEventListener('click', function() {
+            if (currentModalId === null) return;
+            currentModalReversed = !currentModalReversed;
+            updateModal();
+        });
+
+        document.getElementById('modalClose').addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeModal();
+        });
+
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const raw = this.value.trim();
+            currentSearch = raw;
+            searchKeywords = raw.split(/[,，]/).map(s => s.trim()).filter(s => s !== '');
+            render();
+        });
+
+        document.getElementById('transferBtn').addEventListener('click', showTransferResult);
+
+        document.getElementById('transferEnd').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') showTransferResult();
+        });
+        document.getElementById('transferStart').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') showTransferResult();
+        });
+
+        document.querySelectorAll('.system-tabs button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.system-tabs button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentSystem = this.dataset.system;
+                render();
+            });
+        });
+
+        // ===== 启动渲染 =====
+        render();
+    </script>
+</body>
+</html>
