@@ -390,9 +390,72 @@
 </head>
 <body>
 
-    <h1>🚌 阳泉公交线路查询系统 V1.0.2</h1>
+    <h1>🚌 阳泉公交线路查询系统 V1.1.0</h1>
     <p style="color:#666;">整合阳泉市内城区，平定，盂县，华阳四套公交系统</p>
 
+	<!-- ===== 公告栏 ===== -->
+<div id="announcementBar" style="margin: 12px 0 14px 0; background: #fff8e1; border: 1px solid #ffd54f; border-radius: 8px; padding: 12px 16px; display:none;">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#e65100;font-size:0.95em;margin-bottom:6px;">
+        <span>📢</span> 站点/线路变动提醒
+        <span id="annBadge" style="background:#e65100;color:#fff;font-size:0.7em;padding:0 10px;border-radius:12px;font-weight:normal;">0</span>
+    </div>
+    <div id="annList" style="display:flex;flex-direction:column;gap:4px;"></div>
+    <div id="annToggleBtn" style="text-align:center;margin-top:6px;font-size:0.85em;color:#e65100;cursor:pointer;display:none;">展开全部</div>
+</div>
+
+<script>
+     ===== 公告栏数据 =====
+    // 格式：{ id: "唯一标识", target: "站点名或线路名", content: "公告内容", date: "2026-08-22" }
+    // 只用填 target 和 content，其他的会自动生成
+    const announcements = [
+        { target: "滨河公交车场站", content: "临时封闭施工，临时取消往保晋文化园方向的站点停靠", date: "2026-08-15" },
+        { target: "7路及其支线，32路，505路", content: "临时取消颐康四区站点停靠", date: "2026-08-15" },
+        { target: "32路，35路，808路", content: "返程临时取消三和园站点停靠", date: "2026-08-15" },
+		{ target: "25路", content: "临时取消阳泉市中心血站站点停靠", date: "2026-08-15" },
+    ];
+
+    // ===== 公告栏渲染逻辑 =====
+    let annExpanded = false;
+    const annVisibleCount = 3;
+
+    function renderAnnouncements() {
+        const bar = document.getElementById('announcementBar');
+        const list = document.getElementById('annList');
+        const badge = document.getElementById('annBadge');
+        const toggle = document.getElementById('annToggleBtn');
+        
+        if (!announcements || announcements.length === 0) {
+            bar.style.display = 'none';
+            return;
+        }
+        bar.style.display = 'block';
+        badge.textContent = announcements.length;
+        
+        const displayItems = annExpanded ? announcements : announcements.slice(0, annVisibleCount);
+        list.innerHTML = displayItems.map(a => `
+            <div style="display:flex;align-items:center;gap:6px;font-size:0.9em;padding:3px 0;border-bottom:1px dashed #f0e0c0;">
+                <span style="flex-shrink:0;">⚠️</span>
+                <span style="font-weight:500;">${a.target}：</span>
+                <span style="color:#555;">${a.content}</span>
+                <span style="font-size:0.7em;color:#999;margin-left:auto;flex-shrink:0;">${a.date || ''}</span>
+            </div>
+        `).join('');
+        
+        toggle.style.display = announcements.length > annVisibleCount ? 'block' : 'none';
+        toggle.textContent = annExpanded ? '收起 ▲' : `展开全部 (共${announcements.length}条) ▼`;
+    }
+
+    // ===== 展开/收起切换 =====
+    document.getElementById('annToggleBtn').addEventListener('click', function() {
+        annExpanded = !annExpanded;
+        renderAnnouncements();
+    });
+
+    // ===== 在页面加载完成后执行 =====
+    // 如果你已经有 render() 函数，把这行加到 render() 末尾
+    // 如果没有，直接调用
+    renderAnnouncements();
+</script>
     <div class="system-tabs">
         <button class="active" data-system="全部">全部</button>
         <button data-system="城区">城区</button>
